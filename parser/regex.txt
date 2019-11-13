@@ -1,0 +1,21 @@
+char open close star plus qmark bar bopen bclose carrot dash end
+regex prebar comp elem cclass ccol ctype start
+18
+start:regex end
+regex:regex bar prebar
+regex:prebar
+prebar:prebar comp
+prebar:comp
+comp:elem star
+comp:elem plus
+comp:elem qmark
+comp:elem
+elem:open regex close
+elem:bopen cclass bclose
+elem:char
+cclass:carrot ccol
+cclass:ccol
+ccol:ccol ctype
+ccol:ctype
+ctype:char
+ctype:char dash char
