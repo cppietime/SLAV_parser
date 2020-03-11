@@ -114,7 +114,7 @@ parsam_ast* regam_producer(){
                         }
                     }
                     line[lptr++] = 0;
-                    ret->lexeme = malloc(lptr);
+                    ret->lexeme = malloc(lptr * 4);
                     strwstr(ret->lexeme, line);
                 }else{
                     ret->lexeme = malloc(12);

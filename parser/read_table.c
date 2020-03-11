@@ -691,7 +691,10 @@ int wstrncmp(uint32_t *a, uint32_t *b, size_t n){
 
 void fprintw(FILE *file, uint32_t *wstr){
   for(uint32_t *ptr = wstr; *ptr; ptr++){
-    fputc(*ptr, file);
+		if(*ptr <= 127)
+			fputc(*ptr, file);
+		else
+			fprintf(file, "[\\x%x]", *ptr);
   }
 }
 
@@ -700,12 +703,16 @@ long wstrtol(uint32_t *wstr, uint32_t **end, int radix){
   long ret = 0;
   uint32_t *ptr;
   for(ptr = wstr; *ptr; ptr++){
-    ret *= radix;
-    onechar[0] = *ptr;
-    ret += strtol(onechar, NULL, radix);
+		onechar[0] = *ptr;
+		if( (*ptr >= '0' && *ptr <= '9') || (*ptr >= 'A' && *ptr <= 'F') || (*ptr >= 'a' && *ptr <= 'f') ){
+			ret *= radix;
+			ret += strtol(onechar, NULL, radix);
+		}
+		else break;
   }
   if(end != NULL)
     *end = ptr;
+	return ret;
 }
 
 // int main(){

@@ -160,7 +160,9 @@ parsam_ast* regam_get_lexeme(){
 		uint32_t ttype;
 		uint32_t *eptr = regam_match(buffer, buf_size, prod_dfa, &ttype);
 		if(eptr == NULL){
-			fprintf(stderr, "Error: Unrecognized token \"%.*s\"\n", buf_size, buffer);
+			fprintf(stderr, "Error: Unrecognized token \"");
+			fprintw(stderr, buffer);
+			fprintf(stderr, "\"\n", buf_size, buffer);
 			return token_over();
 		}
 		for(uint32_t *ch = buffer; ch < eptr; ch ++){
