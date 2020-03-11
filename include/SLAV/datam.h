@@ -1,6 +1,7 @@
 /*
 A library of data types/structures for general use.
 Written by Yaakov Schectman 2019.
+These functions require the source code/library for libdatam.a to work. Run `make datatypes` to compile this library.
 */
 
 #ifndef _H_DATAM

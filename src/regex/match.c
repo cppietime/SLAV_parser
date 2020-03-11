@@ -109,7 +109,9 @@ parsam_ast* regam_get_lexeme(){
 		}
 		buf_size -= buf_ptr;
 		buf_ptr = 0;
-		// buf_size += fread(buffer + buf_size, 1, 4096 - buf_size, srcfile);
+		if(feof(srcfile) && buf_size == 0){
+			return token_over();
+		}
     for(int i = 0; i < 4096 - buf_size; i++){
       uint32_t unicode = 0;
       int first = fgetc(srcfile);
@@ -150,8 +152,11 @@ parsam_ast* regam_get_lexeme(){
         unicode <<= 6;
         unicode |= fourth & 0x3f;
       }
-      if(feof(srcfile))
+      if(feof(srcfile)){
+				if(buffer[buf_size - 1] != 10)
+					buffer[buf_size++] = 10;
         break;
+			}
       buffer[buf_size++] = unicode;
     }
 		if(buf_size == 0){
@@ -160,10 +165,10 @@ parsam_ast* regam_get_lexeme(){
 		uint32_t ttype;
 		uint32_t *eptr = regam_match(buffer, buf_size, prod_dfa, &ttype);
 		if(eptr == NULL){
-			fprintf(stderr, "Error: Unrecognized token \"");
-			fprintw(stderr, buffer);
-			fprintf(stderr, "\"\n", buf_size, buffer);
-			return token_over();
+			fprintf(stderr, "Error @ line %d: Unrecognized token: \"", line_no);
+			fprintwn(stderr, buffer, buf_size);
+			fprintf(stderr, "\"\n");
+			return NULL;
 		}
 		for(uint32_t *ch = buffer; ch < eptr; ch ++){
 			if(*ch == '\n'){

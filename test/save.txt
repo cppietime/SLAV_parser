@@ -1,0 +1,26 @@
+id open close end
+stmlist stmt start
+5 8
+start:stmlist end
+stmlist:stmlist stmt
+stmlist:stmt
+stmt:open stmlist close
+stmt:id
+S1 S2 E0 E0 G7 G6 E0
+R4 R4 R4 R4 E0 E0 E0
+S1 S2 E0 E0 G3 G6 E0
+S1 S2 S4 E0 E0 G5 E0
+R3 R3 R3 R3 E0 E0 E0
+R1 R1 R1 R1 E0 E0 E0
+R2 R2 R2 R2 E0 E0 E0
+S1 S2 A0 A0 E0 G5 E0
+0 1 9 10 2 32 32 2 35 35 3 48 57 6 60 60 7 62 62 8 65 90 6 97 122 6 955 955 9
+5 0 9 10 2 32 32 2
+0 0 0 9 4 10 10 5 11 2097151 4
+0 0 0 9 4 10 10 5 11 2097151 4
+5 0
+1 0 48 57 6 65 90 6 97 122 6
+2 0
+3 0
+1 0 955 955 9
+ENDDFA

@@ -9,7 +9,7 @@ Written by Yaakov Schectman 2019.
 #include <stdio.h>
 #include <stdint.h>
 /* Included for hash tables */
-#include "../datatypes/datam.h"
+#include "datam.h"
 
 /* ================================================================================================================ */
 /* The data types for the shift-reduce parser table itself. */
@@ -103,6 +103,7 @@ void wstrncpy(uint32_t *dst, uint32_t *src, size_t n); /* Copy unicode string */
 int wstrncmp(uint32_t *dst, uint32_t *src, size_t n); /* Copy unicode string */
 long wstrtol(uint32_t *wstr, uint32_t **end, int radix); /* Unicode string to long int */
 void fprintw(FILE *file, uint32_t *wstr); /* Prints a unicode string as normal string to file */
+void fprintwn(FILE *file, uint32_t *wstr, size_t n); /* Prints a unicode string as normal string to file with a limit */
 
 /* Recursively frees up an AST */
 void parsam_ast_delete(parsam_ast *ast);

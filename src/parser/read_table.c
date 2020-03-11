@@ -8,9 +8,9 @@ Written by Yaakov Schectman 2019.
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include "../regex/regam.h"
+#include "regam.h"
 #include "parsam.h"
-#include "../slav.h"
+#include "slav.h"
 
 static int str_pieces = 11;
 
@@ -691,7 +691,16 @@ int wstrncmp(uint32_t *a, uint32_t *b, size_t n){
 
 void fprintw(FILE *file, uint32_t *wstr){
   for(uint32_t *ptr = wstr; *ptr; ptr++){
-		if(*ptr <= 127)
+		if(*ptr <= 127 && *ptr != '\n' && *ptr != '\r')
+			fputc(*ptr, file);
+		else
+			fprintf(file, "[\\x%x]", *ptr);
+  }
+}
+
+void fprintwn(FILE *file, uint32_t *wstr, size_t n){
+  for(uint32_t *ptr = wstr; *ptr && ptr < wstr + n; ptr++){
+		if(*ptr <= 127 && *ptr != '\n' && *ptr != '\r')
 			fputc(*ptr, file);
 		else
 			fprintf(file, "[\\x%x]", *ptr);

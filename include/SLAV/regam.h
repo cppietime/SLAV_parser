@@ -10,8 +10,8 @@ Written by Yaakov Schectman 2019.
 
 #include <stdint.h>
 #include <stdio.h>
-#include "../datatypes/datam.h"
-#include "../parser/parsam.h"
+#include "datam.h"
+#include "parsam.h"
 
 /* ================================================================================================================== */
 /* Reading regex tokens from a FILE */

@@ -1,0 +1,14 @@
+id open close end
+stmlist stmt start
+5
+start:stmlist end
+stmlist:stmlist stmt
+stmlist:stmt
+stmt:open stmlist close
+stmt:id
+id:\w+|(\x3bb+)
+open:<
+close:>
+IGNORE:#[^\n]*\n
+IGNORE:\s+
+OVER

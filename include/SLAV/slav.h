@@ -1,5 +1,7 @@
 /*
 General utility that does all the steps in one call.
+You will need to link libs/libslav.a for this to work.
+Run `make slav` to compile this library.
 Written by Yaakov Schectman 2019.
 */
 
@@ -7,9 +9,9 @@ Written by Yaakov Schectman 2019.
 #define _H_SLAV
 
 #include <stdio.h>
-#include "datatypes/datam.h"
-#include "parser/parsam.h"
-#include "regex/regam.h"
+#include "datam.h"
+#include "parsam.h"
+#include "regam.h"
 
 /* Type containing the necessary elements */
 typedef struct {

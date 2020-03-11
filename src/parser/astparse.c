@@ -33,7 +33,7 @@ parsam_ast* parsam_parse(parsam_table *table, parsam_generator producer){
         if(reduced != NULL){
             parsam_cell cell = row->cells[reduced->symbol.id + table->n_term];
             if(cell.action == Error){
-                fprintf(stderr, "No action for transition at state %d object %s!\n", state, table->symids[reduced->symbol.id + table->n_term]);
+                fprintf(stderr, "Error @ line %d: No action for transition at state %d object %s!\n", reduced->line_no, state, table->symids[reduced->symbol.id + table->n_term]);
                 error = 1;
             }else{
                 parsam_stackpc pc = {.state = state, .ast = reduced};
@@ -56,7 +56,7 @@ parsam_ast* parsam_parse(parsam_table *table, parsam_generator producer){
                 parsam_cell cell = row->cells[id];
                 switch(cell.action){
                     case Error:
-                        fprintf(stderr, "No transition at state %d symbol %s", state, table->symids[id]);
+                        fprintf(stderr, "Error @ line %d: No transition at state %d symbol %s", next->line_no, state, table->symids[id]);
                         if(next->lexeme != NULL){
                           fputs("(\"", stderr);
                           fprintw(stderr, next->lexeme);
@@ -93,11 +93,11 @@ parsam_ast* parsam_parse(parsam_table *table, parsam_generator producer){
                             state = pc.state;
                             reduced->subtrees[reduced->n - 1 - i] = pc.ast;
                         }
-						reduced->line_no = reduced->subtrees[0]->line_no;
+												reduced->line_no = reduced->subtrees[0]->line_no;
                         break;
                     }
                     default:{
-                        fprintf(stderr, "Invalid action %d for row %d at object %s\n", cell.action, state, table->symids[id]);
+                        fprintf(stderr, "Error @ line %d: Invalid action %d for row %d at object %s\n", next->line_no, cell.action, state, table->symids[id]);
                         error = 1;
                     }
                 }
@@ -132,7 +132,6 @@ parsam_ast* parsam_parse(parsam_table *table, parsam_generator producer){
         parsam_stackpc pc;
         while(stack->n > 0){
             datam_darr_pop(stack, &pc);
-            parsam_ast_print(pc.ast, table, stdout);
             parsam_ast_delete(pc.ast);
         }
         datam_darr_delete(stack);
