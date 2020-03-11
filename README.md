@@ -71,3 +71,7 @@ See test.c for an example program. Compile with `make test`.
 ## I/O and utility functions  
 
 The slavio.h include file adds a handful of useful utility and I/O functions, such as extended random number generation, endian-agnostic file I/O, and simple image processing. Run `make io_shared` or `io_static` to compile the necessary libraries.
+
+## Big integers
+
+The bigint.h header includes functions and datatypes for arbitrary-precision big integers and fixed-point numbers, as well as some rudimentary encryption (not practical). Run `make slavint_shared` or `slavint_static` to compile the libraries.

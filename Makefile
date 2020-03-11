@@ -6,6 +6,18 @@ SRC_SLAV = $(wildcard src/*.c) $(wildcard src/parser/*.c) $(wildcard src/regex/*
 OBJ_SLAV = $(patsubst %.c, %.o, $(SRC_SLAV))
 SRC_UTILS = $(wildcard src/util/*.c)
 OBJ_UTILS = $(patsubst %.c, %.o, $(SRC_UTILS))
+SRC_BIGI = $(wildcard src/bigint/*.c)
+OBJ_BIGI = $(patsubst %.c, %.o, $(SRC_BIGI))
+
+.PHONY: bigint_static
+bigint_static: libs/libslavint.a
+libs/libslavint.a: $(OBJ_BIGI)
+	ar rcs libs/libslavint.a $(OBJ_BIGI)
+
+.PHONY: bigint_shared
+bigint_shared: libs/slavint.so
+libs/slavint.so: $(OBJ_BIGI)
+	$(CC) $(FLAGS) --shared -o libs/slavint.so $(OBJ_BIGI)
 
 .PHONY: slav_static
 slav_static: libs/libslav.a
@@ -50,7 +62,7 @@ test_shared: slav_shared datatypes_shared
 
 .PHONY: clean
 clean:
-	rm -f $(OBJ_DAT) $(OBJ_SLAV)
+	rm -f $(OBJ_DAT) $(OBJ_SLAV) $(OBJ_UTILS) $(OBJ_BIGI)
 
 .PHONY: destroy
 destroy: clean
