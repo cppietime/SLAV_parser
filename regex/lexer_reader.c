@@ -76,29 +76,29 @@ datam_darr* regam_repls(FILE *src, parsam_table *table){
     static char line[1024];
     while(1){
 		line[0] = 0;
-        fgets(line, 1024, src);
-        if(line[0] == 0 || line[0] == '\n' || line[0] == '\r' || line[0] == EOF){
-            break;
-        }
-		char *end = line + strlen(line) - 1;
-		while(end > line && isspace(*end)){
-			end--;
-		}
-		*(end+1) = 0;
-        char *sp1 = strchr(line, ' ');
-        char *sp2 = strchr(sp1+1, ' ');
-        *sp1 = 0;
-        *sp2 = 0;
-        regam_repl repl;
-		parsam_symbol *s1, *s2;
-        s1 = (parsam_symbol*)datam_hashtable_get(table->symnames, line);
-        s2 = (parsam_symbol*)datam_hashtable_get(table->symnames, sp1+1);
-		repl.base = s1->id;
-		repl.target = s2->id;
-        char *key = malloc(strlen(sp2+1)+1);
-        strcpy(key, sp2+1);
-        repl.key = key;
-        datam_darr_push(repls, &repl);
+			fgets(line, 1024, src);
+			if(line[0] == 0 || line[0] == '\n' || line[0] == '\r' || line[0] == EOF){
+					break;
+			}
+			char *end = line + strlen(line) - 1;
+			while(end > line && isspace(*end)){
+				end--;
+			}
+			*(end+1) = 0;
+			char *sp1 = strchr(line, ' ');
+			char *sp2 = strchr(sp1+1, ' ');
+			*sp1 = 0;
+			*sp2 = 0;
+			regam_repl repl;
+			parsam_symbol *s1, *s2;
+			s1 = (parsam_symbol*)datam_hashtable_get(table->symnames, line);
+			s2 = (parsam_symbol*)datam_hashtable_get(table->symnames, sp1+1);
+			repl.base = s1->id;
+			repl.target = s2->id;
+			uint32_t *key = malloc(4 * (strlen(sp2 + 1) + 1));
+			strwstr(key, sp2+1);
+			repl.key = key;
+			datam_darr_push(repls, &repl);
     }
     return repls;
 }
@@ -116,6 +116,8 @@ void regam_repls_save(FILE *dst, datam_darr *repls, parsam_table *table){
 	regam_repl repl;
 	for(size_t i = 0; i < repls->n; i ++){
 		datam_darr_get(repls, &repl, i);
-		fprintf(dst, "%s %s %s\n", table->symids[repl.base], table->symids[repl.target], repl.key);
+		fprintf(dst, "%s %s ", table->symids[repl.base], table->symids[repl.target]);
+		fprintw(dst, repl.key);
+		fprintf(dst, "\n");
 	}
 }

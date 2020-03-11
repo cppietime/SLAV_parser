@@ -5,6 +5,7 @@ Written by Yaakov Schectman 2019.
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 #include "regam.h"
 
 /* Make an AST to crange */
@@ -17,7 +18,7 @@ void regam_crange_build(regam_crange *dst, parsam_ast *src){
     if(src->symbol.id == Ctype){
         if(src->n == 1){ /* Single character */
             parsam_ast *tok = src->subtrees[0];
-            char *lex = tok->lexeme;
+            uint32_t *lex = tok->lexeme;
             if(lex[0] == '\\'){ /* Deal with escapes */
                 dst->start = dst->end = 0;
                 switch(lex[1]){
@@ -30,7 +31,7 @@ void regam_crange_build(regam_crange *dst, parsam_ast *src){
                     case 'n': dst->start = dst->end = '\n'; break;
                     case 't': dst->start = dst->end = '\t'; break;
                     case 'x': {
-                        dst->start = dst->end = strtol(lex+2, NULL, 16);
+                        dst->start = dst->end = wstrtol(lex+2, NULL, 16);
                         break;
                     }
                     default: dst->start = dst->end = lex[1]; break;
@@ -43,10 +44,10 @@ void regam_crange_build(regam_crange *dst, parsam_ast *src){
             }
         }else if(src->n == 3){ /* Range of characters */
             parsam_ast *first = src->subtrees[0], *last = src->subtrees[2];
-            char *lex0 = first->lexeme, *lex1 = last->lexeme;
+            uint32_t *lex0 = first->lexeme, *lex1 = last->lexeme;
             if(lex0[0]=='\\'){
                 if(lex0[1] == 'x'){
-                    dst->start = strtol(lex0+2, NULL, 16);
+                    dst->start = wstrtol(lex0+2, NULL, 16);
                 }else{
                     dst->start = lex0[1];
                 }
@@ -55,7 +56,7 @@ void regam_crange_build(regam_crange *dst, parsam_ast *src){
             }
             if(lex1[0]=='\\'){
                 if(lex1[1] == 'x'){
-                    dst->end = strtol(lex1+2, NULL, 16);
+                    dst->end = wstrtol(lex1+2, NULL, 16);
                 }else{
                     dst->end = lex1[1];
                 }
@@ -67,7 +68,7 @@ void regam_crange_build(regam_crange *dst, parsam_ast *src){
         }
     }else if(src->symbol.id == Elem){
         parsam_ast *tok = src->subtrees[0];
-        char *lex = tok->lexeme;
+        uint32_t *lex = tok->lexeme;
         if(lex[0] == '\\'){ /* Deal with escapes */
             dst->start = dst->end = 0;
             switch(lex[1]){
@@ -80,7 +81,7 @@ void regam_crange_build(regam_crange *dst, parsam_ast *src){
                 case 'n': dst->start = dst->end = '\n'; break;
                 case 't': dst->start = dst->end = '\t'; break;
                 case 'x': {
-                    dst->start = dst->end = strtol(lex+2, NULL, 16);
+                    dst->start = dst->end = wstrtol(lex+2, NULL, 16);
                     break;
                 }
                 default: dst->start = dst->end = lex[1]; break;

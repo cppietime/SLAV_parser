@@ -40,8 +40,8 @@ parsam_ast* regam_producer(){
     if(first == '\n' || first == '\r' || src_file == NULL || (feof(src_file) && reserve == -1)){
         ret->filename = NULL;
         ret->line_no = -1;
-        ret->lexeme = malloc(2);
-        strcpy(ret->lexeme, "$");
+        ret->lexeme = malloc(8);
+        strwstr(ret->lexeme, "$");
         ret->symbol = (parsam_symbol){.type = Terminal, .id = Dsign};
         return ret;
     }
@@ -50,53 +50,53 @@ parsam_ast* regam_producer(){
     line[lptr++] = first;
     switch(line[0]){
         case '(':
-            ret->lexeme = malloc(2);
-            strcpy(ret->lexeme, "(");
+            ret->lexeme = malloc(8);
+            strwstr(ret->lexeme, "(");
             ret->symbol = (parsam_symbol){.type = Terminal, .id = Lpar};
             break;
         case ')':
-            ret->lexeme = malloc(2);
-            strcpy(ret->lexeme, ")");
+            ret->lexeme = malloc(8);
+            strwstr(ret->lexeme, ")");
             ret->symbol = (parsam_symbol){.type = Terminal, .id = Rpar};
             break;
         case '[':
-            ret->lexeme = malloc(2);
-            strcpy(ret->lexeme, "[");
+            ret->lexeme = malloc(8);
+            strwstr(ret->lexeme, "[");
             ret->symbol = (parsam_symbol){.type = Terminal, .id = Lbrack};
             break;
         case ']':
-            ret->lexeme = malloc(2);
-            strcpy(ret->lexeme, "]");
+            ret->lexeme = malloc(8);
+            strwstr(ret->lexeme, "]");
             ret->symbol = (parsam_symbol){.type = Terminal, .id = Rbrack};
             break;
         case '^':
-            ret->lexeme = malloc(2);
-            strcpy(ret->lexeme, "^");
+            ret->lexeme = malloc(8);
+            strwstr(ret->lexeme, "^");
             ret->symbol = (parsam_symbol){.type = Terminal, .id = Carrot};
             break;
         case '|':
-            ret->lexeme = malloc(2);
-            strcpy(ret->lexeme, "|");
+            ret->lexeme = malloc(8);
+            strwstr(ret->lexeme, "|");
             ret->symbol = (parsam_symbol){.type = Terminal, .id = Vbar};
             break;
         case  '-':
-            ret->lexeme = malloc(2);
-            strcpy(ret->lexeme, "-");
+            ret->lexeme = malloc(8);
+            strwstr(ret->lexeme, "-");
             ret->symbol = (parsam_symbol){.type = Terminal, .id = Dash};
             break;
         case '?':
-            ret->lexeme = malloc(2);
-            strcpy(ret->lexeme, "?");
+            ret->lexeme = malloc(8);
+            strwstr(ret->lexeme, "?");
             ret->symbol = (parsam_symbol){.type = Terminal, .id = Qmark};
             break;
         case '*':
-            ret->lexeme = malloc(2);
-            strcpy(ret->lexeme, "*");
+            ret->lexeme = malloc(8);
+            strwstr(ret->lexeme, "*");
             ret->symbol = (parsam_symbol){.type = Terminal, .id = Star};
             break;
         case '+':
-            ret->lexeme = malloc(2);
-            strcpy(ret->lexeme, "+");
+            ret->lexeme = malloc(8);
+            strwstr(ret->lexeme, "+");
             ret->symbol = (parsam_symbol){.type = Terminal, .id = Plus};
             break;
         default:
@@ -115,14 +115,14 @@ parsam_ast* regam_producer(){
                     }
                     line[lptr++] = 0;
                     ret->lexeme = malloc(lptr);
-                    strcpy(ret->lexeme, line);
+                    strwstr(ret->lexeme, line);
                 }else{
-                    ret->lexeme = malloc(3);
-                    memcpy(ret->lexeme, line, 2);
+                    ret->lexeme = malloc(12);
+                    strnwstr(ret->lexeme, line, 2);
                     ret->lexeme[2] = 0;
                 }
             }else{
-                ret->lexeme = malloc(2);
+                ret->lexeme = malloc(8);
                 ret->lexeme[0] = line[0];
                 ret->lexeme[1] = 0;
             }

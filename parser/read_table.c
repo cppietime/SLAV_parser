@@ -4,6 +4,7 @@ Written by Yaakov Schectman 2019.
 */
 
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
@@ -587,75 +588,147 @@ parsam_ast* producer(){
     parsam_ast *ret = malloc(sizeof(parsam_ast));
     ret->subtrees = NULL;
     char *lex = toks[num];
-    char *nlex = malloc(strlen(lex)+1);
-    strcpy(nlex, lex);
+    uint32_t *nlex = malloc(4 * (strlen(lex) + 1));
+    strwstr(nlex, lex);
     ret->lexeme = nlex;
     ret->symbol = (parsam_symbol){.type = Terminal, .id = ids[num]};
     num++;
     return ret;
 }
 
-int main(){
-	regam_nfa_start();
-	FILE *srcfil = fopen("C:/users/alpac/documents/github/datamatum/parser/shift.txt", "r");
-	slav_lang lang;
-	slav_updog(srcfil, &lang);
-	fclose(srcfil);
-	srcfil = fopen("C:/users/alpac/documents/github/datamatum/parser/save.txt", "w");
-	slav_sugma(srcfil, &lang);
-	parsam_table_print(lang.table, stdout);
-	regam_nfa_print(lang.dfa);
-	fclose(srcfil);
-	slav_squat(&lang);
-	srcfil = fopen("C:/users/alpac/documents/github/datamatum/parser/save.txt", "r");
-	slav_ligma(srcfil, &lang);
-	fclose(srcfil);
-	srcfil = fopen("C:/users/alpac/documents/github/datamatum/parser/test.txt", "r");
-	parsam_ast *res = slav_joe(srcfil, &lang);
-	fclose(srcfil);
-	parsam_ast_print(res, lang.table, stdout);
-	parsam_ast_delete(res);
-	slav_squat(&lang);
-	regam_nfa_end();
-	return 0;
+uint32_t adv_unicode(char **src){
+  int first = **src;
+  (*src)++;
+	/* Check BOM */
+	if(first == 0xef){
+		char *reset = *src;
+		int bom = 1;
+		if(*((*src)++) != 0xbb)
+			bom = 0;
+		if(*((*src)++) != 0xbf)
+			bom = 0;
+		if(bom)
+			first = *((*src)++);
+		else
+			*src = reset;
+	}
+  uint32_t uni = first;
+  if((first & 0xe0) == 0xc0){
+    int sec = **src;
+    (*src)++;
+    uni = first & 0x1f;
+    uni <<= 6;
+    uni += sec & 0x3f;
+  }
+  else if((first & 0xf0) == 0xe0){
+    int sec = **src;
+    (*src)++;
+    int third = **src;
+    (*src)++;
+    uni = first & 0x0f;
+    uni <<= 6;
+    uni += sec & 0x3f;
+    uni <<= 6;
+    uni += third & 0x3f;
+  }
+  else if((first & 0xf8) == 0xf0){
+    int sec = **src;
+    (*src)++;
+    int third = **src;
+    (*src)++;
+    int fourth = **src;
+    (*src)++;
+    uni = first & 0x07;
+    uni <<= 6;
+    uni += sec & 0x3f;
+    uni <<= 6;
+    uni += third & 0x3f;
+    uni <<= 6;
+    uni += fourth & 0x3f;
+  }
+  return uni;
+}
+
+void strwstr(uint32_t *wstr, char *str){
+  int i = 0;
+  while(*str){
+    wstr[i++] = adv_unicode(&str);
+  }
+  wstr[i] = 0;
+}
+
+void strnwstr(uint32_t *wstr, char *str, size_t n){
+  int i = 0;
+  while(*str && i < n){
+    wstr[i++] = adv_unicode(&str);
+  }
+  wstr[i] = 0;
+}
+
+void wstrcpy(uint32_t *dst, uint32_t *src){
+  for(uint32_t *ptr = src; *ptr; ptr++){
+    *(dst++) = *ptr;
+  }
+  *dst = 0;
+}
+
+void wstrncpy(uint32_t *dst, uint32_t *src, size_t n){
+  int i;
+  for(i=0; src[i] && i < n; i++){
+    dst[i] = src[i];
+  }
+  dst[i] = 0;
+}
+
+int wstrncmp(uint32_t *a, uint32_t *b, size_t n){
+  for(int i = 0; i < n; i++){
+    int dif = (int)(a[i]) - (int)(b[i]);
+    if(dif)
+      return dif;
+  }
+  return 0;
+}
+
+void fprintw(FILE *file, uint32_t *wstr){
+  for(uint32_t *ptr = wstr; *ptr; ptr++){
+    fputc(*ptr, file);
+  }
+}
+
+long wstrtol(uint32_t *wstr, uint32_t **end, int radix){
+  static char onechar[2] = {0, 0};
+  long ret = 0;
+  uint32_t *ptr;
+  for(ptr = wstr; *ptr; ptr++){
+    ret *= radix;
+    onechar[0] = *ptr;
+    ret += strtol(onechar, NULL, radix);
+  }
+  if(end != NULL)
+    *end = ptr;
 }
 
 // int main(){
 	// regam_nfa_start();
-	// FILE* srcfil = fopen("C:/users/alpac/documents/github/datamatum/parser/shift.txt", "r");
-	// parsam_table *table = parsam_table_make(srcfil);
-	// if(table != NULL){
-		// printf("Created table\n");
-	// }
-	// regam_nfa *dfa = regam_from_file(srcfil, table);
-	// datam_darr *extras = regam_repls(srcfil, table);
+	// FILE *srcfil = fopen("C:/users/alpac/documents/github/datamatum/parser/shift.txt", "r");
+	// slav_lang lang;
+	// slav_updog(srcfil, &lang);
 	// fclose(srcfil);
-	// regam_dfa_reduce(dfa);
 	// srcfil = fopen("C:/users/alpac/documents/github/datamatum/parser/save.txt", "w");
-	// parsam_table_print(table, srcfil);
-	// regam_dfa_save(srcfil, dfa);
-	// regam_repls_save(srcfil, extras, table);
-	// printf("Saved\n");
+	// slav_sugma(srcfil, &lang);
+	// parsam_table_print(lang.table, stdout);
+	// regam_nfa_print(lang.dfa);
 	// fclose(srcfil);
-	// regam_nfa_print(dfa);
-	// parsam_table_delete(table);
-	// regam_nfa_delete(dfa);
-	// regam_repls_delete(extras);
+	// slav_squat(&lang);
 	// srcfil = fopen("C:/users/alpac/documents/github/datamatum/parser/save.txt", "r");
-	// table = parsam_table_read(srcfil);
-	// dfa = regam_dfa_load(srcfil);
-	// regam_nfa_print(dfa);
-	// extras = regam_repls(srcfil, table);
+	// slav_ligma(srcfil, &lang);
+	// fclose(srcfil);
 	// srcfil = fopen("C:/users/alpac/documents/github/datamatum/parser/test.txt", "r");
-	// regam_load_lexer(dfa, extras, table);
-	// regam_load_lexsrc(srcfil);
-	// parsam_ast *res = parsam_parse(table, regam_get_lexeme);
-	// parsam_ast_print(res, table, stdout);
+	// parsam_ast *res = slav_joe(srcfil, &lang);
+	// fclose(srcfil);
+	// parsam_ast_print(res, lang.table, stdout);
 	// parsam_ast_delete(res);
-	// parsam_table_delete(table);
-	// regam_nfa_delete(dfa);
-	// regam_repls_delete(extras);
-    // regam_nfa_end();
-    // printf("Concluded\n");
-    // return 0;
+	// slav_squat(&lang);
+	// regam_nfa_end();
+	// return 0;
 // }

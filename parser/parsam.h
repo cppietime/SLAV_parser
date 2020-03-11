@@ -7,6 +7,7 @@ Written by Yaakov Schectman 2019.
 #define _H_PARSAM
 
 #include <stdio.h>
+#include <stdint.h>
 /* Included for hash tables */
 #include "../datatypes/datam.h"
 
@@ -87,13 +88,21 @@ void parsam_table_print(parsam_table *table, FILE* dst);
 typedef struct _parsam_ast parsam_ast;
 struct _parsam_ast{
     parsam_ast **subtrees; /* Array of pointers to subtrees, if any. Ignored for terminals */
-    char *lexeme; /* The actual characters this node in the AST contains */
+    uint32_t *lexeme; /* The actual characters this node in the AST contains */
     char *filename; /* The name of the file this token came from */
     parsam_symbol symbol; /* The symbol of this tree node */
     size_t n; /* Number of subtrees of this AST node */
     int rule; /* By which production rule was this symbol produced. Ignored for terminals */
     int line_no; /* Line number of token in file */
 };
+
+void strwstr(uint32_t *wstr, char *str); /* Copy normal string to unicode string */
+void strnwstr(uint32_t *wstr, char *str, size_t n); /* Copy normal string to unicode string w/ length limit */
+void wstrcpy(uint32_t *dst, uint32_t *src); /* Copy unicode string */
+void wstrncpy(uint32_t *dst, uint32_t *src, size_t n); /* Copy unicode string */
+int wstrncmp(uint32_t *dst, uint32_t *src, size_t n); /* Copy unicode string */
+long wstrtol(uint32_t *wstr, uint32_t **end, int radix); /* Unicode string to long int */
+void fprintw(FILE *file, uint32_t *wstr); /* Prints a unicode string as normal string to file */
 
 /* Recursively frees up an AST */
 void parsam_ast_delete(parsam_ast *ast);

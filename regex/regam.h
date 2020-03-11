@@ -229,7 +229,7 @@ void regam_dfa_reduce(regam_nfa *dfa);
 /* Match string to regex */
 
 /* Match */
-char* regam_match(char *src, size_t n, regam_nfa *dfa, uint32_t *type);
+uint32_t* regam_match(uint32_t *src, size_t n, regam_nfa *dfa, uint32_t *type);
 
 
 /* ================================================================================================================== */
@@ -237,7 +237,7 @@ char* regam_match(char *src, size_t n, regam_nfa *dfa, uint32_t *type);
 
 /* Extra params for specific tokens */
 typedef struct {
-    char *key; /* String to replace */
+    uint32_t *key; /* String to replace */
     uint32_t base; /* Token applies to */
     uint32_t target; /* Token to become */
 } regam_repl;
@@ -255,7 +255,7 @@ void regam_repls_delete(datam_darr *repls);
 void regam_repls_save(FILE *dst, datam_darr *repls, parsam_table *table);
 
 /* Filter with repls */
-uint32_t regam_filter(char *p0, char *p1, uint32_t type, datam_darr *repls);
+uint32_t regam_filter(uint32_t *p0, uint32_t *p1, uint32_t type, datam_darr *repls);
 
 /* Set the DFA and extra table for lexing */
 void regam_load_lexer(regam_nfa *dfa, datam_darr *repls, parsam_table *table);

@@ -7,6 +7,57 @@ Written by Yaakov Schectman 2019.
 #include <stdint.h>
 #include "regam.h"
 
+/* Regex parser source */
+static char *regex_src =
+"char open close star plus qmark bar bopen bclose carrot dash end\n\
+regex prebar comp elem cclass ccol ctype start\n\
+18 26\n\
+start:regex end\n\
+regex:regex bar prebar\n\
+regex:prebar\n\
+prebar:prebar comp\n\
+prebar:comp\n\
+comp:elem star\n\
+comp:elem plus\n\
+comp:elem qmark\n\
+comp:elem\n\
+elem:open regex close\n\
+elem:bopen cclass bclose\n\
+elem:char\n\
+cclass:carrot ccol\n\
+cclass:ccol\n\
+ccol:ccol ctype\n\
+ccol:ctype\n\
+ctype:char\n\
+ctype:char dash char\n\
+S1 S2 E0 E0 E0 E0 E0 S3 E0 E0 E0 E0 G25 G24 G23 G19 E0 E0 E0 E0\n\
+R11 R11 R11 R11 R11 R11 R11 R11 E0 E0 E0 R11 E0 E0 E0 E0 E0 E0 E0 E0\n\
+S1 S2 E0 E0 E0 E0 E0 S3 E0 E0 E0 E0 G14 G24 G23 G19 E0 E0 E0 E0\n\
+S4 E0 E0 E0 E0 E0 E0 E0 E0 S7 E0 E0 E0 E0 E0 E0 G11 G13 G10 E0\n\
+R16 E0 E0 E0 E0 E0 E0 E0 R16 E0 S5 E0 E0 E0 E0 E0 E0 E0 E0 E0\n\
+S6 E0 E0 E0 E0 E0 E0 E0 E0 E0 E0 E0 E0 E0 E0 E0 E0 E0 E0 E0\n\
+R17 E0 E0 E0 E0 E0 E0 E0 R17 E0 R17 E0 E0 E0 E0 E0 E0 E0 E0 E0\n\
+S4 E0 E0 E0 E0 E0 E0 E0 E0 E0 E0 E0 E0 E0 E0 E0 E0 G8 G10 E0\n\
+S4 E0 E0 E0 E0 E0 E0 E0 R12 E0 E0 E0 E0 E0 E0 E0 E0 E0 G9 E0\n\
+R14 E0 E0 E0 E0 E0 E0 E0 R14 E0 R14 E0 E0 E0 E0 E0 E0 E0 E0 E0\n\
+R15 E0 E0 E0 E0 E0 E0 E0 R15 E0 R15 E0 E0 E0 E0 E0 E0 E0 E0 E0\n\
+E0 E0 E0 E0 E0 E0 E0 E0 S12 E0 E0 E0 E0 E0 E0 E0 E0 E0 E0 E0\n\
+R10 R10 R10 R10 R10 R10 R10 R10 E0 E0 E0 R10 E0 E0 E0 E0 E0 E0 E0 E0\n\
+S4 E0 E0 E0 E0 E0 E0 E0 R13 E0 E0 E0 E0 E0 E0 E0 E0 E0 G9 E0\n\
+E0 E0 S15 E0 E0 E0 S16 E0 E0 E0 E0 E0 E0 E0 E0 E0 E0 E0 E0 E0\n\
+R9 R9 R9 R9 R9 R9 R9 R9 E0 E0 E0 R9 E0 E0 E0 E0 E0 E0 E0 E0\n\
+S1 S2 E0 E0 E0 E0 E0 S3 E0 E0 E0 E0 E0 G17 G23 G19 E0 E0 E0 E0\n\
+S1 S2 R1 E0 E0 E0 R1 S3 E0 E0 E0 R1 E0 E0 G18 G19 E0 E0 E0 E0\n\
+R3 R3 R3 R3 R3 R3 R3 R3 E0 E0 E0 R3 E0 E0 E0 E0 E0 E0 E0 E0\n\
+R8 R8 R8 S20 S21 S22 R8 R8 E0 E0 E0 R8 E0 E0 E0 E0 E0 E0 E0 E0\n\
+R5 R5 R5 R5 R5 R5 R5 R5 E0 E0 E0 R5 E0 E0 E0 E0 E0 E0 E0 E0\n\
+R6 R6 R6 R6 R6 R6 R6 R6 E0 E0 E0 R6 E0 E0 E0 E0 E0 E0 E0 E0\n\
+R7 R7 R7 R7 R7 R7 R7 R7 E0 E0 E0 R7 E0 E0 E0 E0 E0 E0 E0 E0\n\
+R4 R4 R4 R4 R4 R4 R4 R4 E0 E0 E0 R4 E0 E0 E0 E0 E0 E0 E0 E0\n\
+S1 S2 R2 E0 E0 E0 R2 S3 E0 E0 E0 R2 E0 E0 G18 G19 E0 E0 E0 E0\n\
+A0 A0 A0 A0 A0 A0 S16 A0 A0 A0 A0 A0 E0 E0 E0 E0 E0 E0 E0 E0\n\
+";
+
 /* List of states while constructing all NFAs */
 datam_darr *statelist = NULL;
 
@@ -57,8 +108,14 @@ void regam_nfa_start(){
 	if(regex_table != NULL){
 		return;
 	}
-    FILE* open = fopen("C:/users/alpac/documents/github/datamatum/parser/regex.txt", "r"); /* TODO deal w this */
-    regex_table = parsam_table_make(open);
+    // FILE* open = fopen("C:/users/alpac/documents/github/datamatum/parser/regex.txt", "r"); /* I'm leaving this in case I need it again */
+    FILE *open = tmpfile();
+    for(char *src_ptr = regex_src; *src_ptr; src_ptr++){
+      fputc(*src_ptr, open);
+    }
+    fflush(open);
+    rewind(open);
+    regex_table = parsam_table_read(open);
     fclose(open);
     if(statelist != NULL){
         datam_darr_delete(statelist);

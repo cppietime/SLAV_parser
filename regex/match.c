@@ -49,9 +49,9 @@ uint32_t transfor(regam_nstate *state, uint32_t sym){
     return 0;
 }
 
-char* regam_match(char *src, size_t n, regam_nfa *dfa, uint32_t *type){
+uint32_t* regam_match(uint32_t *src, size_t n, regam_nfa *dfa, uint32_t *type){
     uint32_t sid = dfa->start;
-    char *lacc = NULL;
+    uint32_t *lacc = NULL;
     size_t pos;
     regam_nstate *state;
     for(pos = 0; pos <= n; pos ++){
@@ -74,18 +74,18 @@ char* regam_match(char *src, size_t n, regam_nfa *dfa, uint32_t *type){
     return lacc;
 }
 
-uint32_t regam_filter(char *p0, char *p1, uint32_t type, datam_darr *repls){
+uint32_t regam_filter(uint32_t *p0, uint32_t *p1, uint32_t type, datam_darr *repls){
     regam_repl repl;
     for(size_t i = 0; i < repls->n; i ++){
         datam_darr_get(repls, &repl, i);
-        if(type == repl.base && !strncmp(p0, repl.key, p1 - p0)){
+        if(type == repl.base && !wstrncmp(p0, repl.key, p1 - p0)){
             return repl.target;
         }
     }
     return type;
 }
 
-static char buffer[4096];
+static uint32_t buffer[4096];
 static size_t buf_ptr = 0;
 static size_t buf_size = 0;
 
@@ -105,21 +105,65 @@ parsam_ast* regam_get_lexeme(){
 			return token_over();
 		}
 		if(buf_ptr > 0 && buf_ptr < buf_size){
-			memmove(buffer, buffer + buf_ptr, buf_size - buf_ptr);
+			memmove(buffer, buffer + buf_ptr,4 * (buf_size - buf_ptr));
 		}
 		buf_size -= buf_ptr;
 		buf_ptr = 0;
-		buf_size += fread(buffer + buf_size, 1, 4096 - buf_size, srcfile);
+		// buf_size += fread(buffer + buf_size, 1, 4096 - buf_size, srcfile);
+    for(int i = 0; i < 4096 - buf_size; i++){
+      uint32_t unicode = 0;
+      int first = fgetc(srcfile);
+			if(first == 0xef){ /* Check for BOM */
+				long pos = ftell(srcfile);
+				int bom = 1;
+				if(fgetc(srcfile) != 0xbb)
+					bom = 0;
+				if(fgetc(srcfile) != 0xbf)
+					bom = 0;
+				if(bom)
+					first = fgetc(srcfile);
+				else
+					fseek(srcfile, pos, SEEK_SET);
+			}
+      unicode = first; /* ASCII */
+      if((first & 0xe0) == 0xc0){ /* 2-byte */
+        int second = fgetc(srcfile);
+        unicode = (first & 0x1f) << 6;
+        unicode |= second & 0x3f;
+      }
+      else if((first & 0xf0) == 0xe0){ /* 3-byte */
+        int second = fgetc(srcfile);
+        int third = fgetc(srcfile);
+        unicode = (first & 0x0f) << 6;
+        unicode |= second & 0x3f;
+        unicode <<= 6;
+        unicode |= third & 0x3f;
+      }
+      else if((first & 0xf8) == 0xf0){ /* 4-byte */
+        int second = fgetc(srcfile);
+        int third = fgetc(srcfile);
+        int fourth = fgetc(srcfile);
+        unicode = (first & 0x07) << 6;
+        unicode |= second & 0x3f;
+        unicode <<= 6;
+        unicode |= third & 0x3f;
+        unicode <<= 6;
+        unicode |= fourth & 0x3f;
+      }
+      if(feof(srcfile))
+        break;
+      buffer[buf_size++] = unicode;
+    }
 		if(buf_size == 0){
 			return token_over();
 		}
 		uint32_t ttype;
-		char *eptr = regam_match(buffer, buf_size, prod_dfa, &ttype);
+		uint32_t *eptr = regam_match(buffer, buf_size, prod_dfa, &ttype);
 		if(eptr == NULL){
 			fprintf(stderr, "Error: Unrecognized token \"%.*s\"\n", buf_size, buffer);
 			return token_over();
 		}
-		for(char *ch = buffer; ch < eptr; ch ++){
+		for(uint32_t *ch = buffer; ch < eptr; ch ++){
 			if(*ch == '\n'){
 				line_no ++;
 			}
@@ -131,8 +175,8 @@ parsam_ast* regam_get_lexeme(){
 		}
 		parsam_ast *ret = malloc(sizeof(parsam_ast));
 		ret->symbol = (parsam_symbol){.type = Terminal, .id = ttype};
-		ret->lexeme = malloc(eptr - buffer + 1);
-		strncpy(ret->lexeme, buffer, eptr - buffer);
+		ret->lexeme = malloc(4 * (eptr - buffer + 1));
+		wstrncpy(ret->lexeme, buffer, eptr - buffer);
 		ret->lexeme[eptr - buffer] = 0;
 		ret->subtrees = NULL;
 		ret->line_no = line_no;

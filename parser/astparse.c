@@ -58,7 +58,9 @@ parsam_ast* parsam_parse(parsam_table *table, parsam_generator producer){
                     case Error:
                         fprintf(stderr, "No transition at state %d symbol %s", state, table->symids[id]);
                         if(next->lexeme != NULL){
-                            fprintf(stderr, "(\"%s\")", next->lexeme);
+                          fputs("(\"", stderr);
+                          fprintw(stderr, next->lexeme);
+                          fputs("\")", stderr);
                         }
                         fprintf(stderr, "!\n");
                         error = 1;
@@ -152,7 +154,10 @@ void parsam_ast_print(parsam_ast *ast, parsam_table *table, FILE* dst){
     }
     fprintf(dst, "%s", name);
     if(ast->lexeme != NULL){
-        fprintf(dst, "(%s)", ast->lexeme);
+      fputs("(", stderr);
+      fprintw(stderr, ast->lexeme);
+      fputs(")", stderr);
+        // fprintf(dst, "(%s)", ast->lexeme);
     }
     fprintf(dst, " l(%d) \t%p\n", ast->line_no, ast);
     if(ast->subtrees != NULL){
