@@ -11,6 +11,8 @@ Written by Yaakov Schectman 2019.
 /* Included for hash tables */
 #include "datam.h"
 
+/* An int representing the encoding type of an input */
+
 /* ================================================================================================================ */
 /* The data types for the shift-reduce parser table itself. */
 

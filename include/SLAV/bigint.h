@@ -15,6 +15,10 @@ typedef struct _bigint_t{
     unsigned long digits[0];
 } bigint_t;
 
+#define TYPE_BIGINT 0
+#define TYPE_BIGFIX 1
+#define TYPE_BIGFLOAT 2
+
 /*
 Pointer to bigints in a linked list of all allocated.
 */
@@ -22,6 +26,7 @@ typedef struct _binode_t binode_t;
 struct _binode_t{
     binode_t* next;
     bigint_t* value;
+		int type;
 };
 
 void farrprint(FILE *file, unsigned long*, size_t); /* Prints an array as hex in little-endian to a file */
@@ -39,6 +44,7 @@ void bigint_destroy(); /* Clean it up */
 
 binode_t* bigint_link(); /* Return a new bignum, ready to use */
 void bigint_unlink(binode_t*); /* Destroy a single bignum */
+void biconv(binode_t *num, int type); /* Convert from one type to another */
 
 int arradd(unsigned long *dst, unsigned long *left, size_t llen, unsigned long *right, size_t rlen); /* Add array of nums nad return carry */
 int arrsub(unsigned long *dst, unsigned long *left, size_t llen, unsigned long *right, size_t rlen); /* Subtract right from left and return carry */
@@ -60,14 +66,15 @@ void bisub(binode_t*, binode_t*, binode_t*);
 void fpinc(binode_t*, binode_t*); /* Increment bignum by one */
 void fpdec(binode_t*, binode_t*); /* Decrement bignum by one */
 void fp_kara(binode_t*, binode_t*, binode_t*); /* Multiply as fixed-point */
+void fl_kara(binode_t*, binode_t*, binode_t*); /* Multiply as float-point */
 void ip_kara(binode_t*, binode_t*, binode_t*); /* Multiply as integers */
 
-void bi_printhex(binode_t *num); /* Print bignum as hex */
+void bi_printhex(FILE *dst, binode_t *num); /* Print bignum as hex */
+void bi_printdec(FILE *dst, binode_t *num, size_t lim); /* Print bignum as decimal with a limit of post-point */
 
 unsigned long hibit(unsigned long *arr, size_t len); /* Get the highest set-bit. 1 for least sig bit, 0 for zero */
 void arrdivmod(unsigned long *quo, unsigned long *mod, unsigned long *num, unsigned long *den, size_t len, unsigned long *work); /* Get quotient and modulus */
 void idivmod(binode_t*, binode_t*, binode_t*, binode_t*); /* Divides as integers and gives quotient and modulus. Questionable w/ negatives */
-void fdiv(binode_t *quo, binode_t *num, binode_t* den); /* Divide as fix-points */
 
 /* ============================= FIXED POINT MATH FUNCTIONS ============================ */
 

@@ -11,6 +11,7 @@ Written by Yaakov Schectman 2019.
 #include "regam.h"
 #include "parsam.h"
 #include "slav.h"
+#include "safeio.h"
 
 static int str_pieces = 11;
 
@@ -35,6 +36,8 @@ int substrcmp(void *a, void *b){
 }
 
 void parsam_table_delete(parsam_table *table){
+		if(table == NULL)
+			return;
     if(table->symnames != NULL){
         for(datam_hashbucket *bucket = datam_hashtable_next(table->symnames, NULL);
             bucket != NULL;
@@ -292,7 +295,14 @@ parsam_table *parsam_table_read(FILE *file){
     return table;
 }
 
+static int utf_type = 8;
+
 parsam_table *parsam_table_make(FILE *file){
+		utf_type = fget_utf_type(file);
+		if(utf_type != TYPE_UNKNOWN && utf_type != TYPE_UTF8){
+			fprintf(stderr, "Error: Language specification file MUST be formatted as ASCII or UTF-8!\n");
+			return NULL;
+		}
     static char line[1024], temp[1024];
     parsam_table *table = malloc(sizeof(parsam_table));
     table->n_rules = 0;
@@ -596,63 +606,10 @@ parsam_ast* producer(){
     return ret;
 }
 
-uint32_t adv_unicode(char **src){
-  int first = **src;
-  (*src)++;
-	/* Check BOM */
-	if(first == 0xef){
-		char *reset = *src;
-		int bom = 1;
-		if(*((*src)++) != 0xbb)
-			bom = 0;
-		if(*((*src)++) != 0xbf)
-			bom = 0;
-		if(bom)
-			first = *((*src)++);
-		else
-			*src = reset;
-	}
-  uint32_t uni = first;
-  if((first & 0xe0) == 0xc0){
-    int sec = **src;
-    (*src)++;
-    uni = first & 0x1f;
-    uni <<= 6;
-    uni += sec & 0x3f;
-  }
-  else if((first & 0xf0) == 0xe0){
-    int sec = **src;
-    (*src)++;
-    int third = **src;
-    (*src)++;
-    uni = first & 0x0f;
-    uni <<= 6;
-    uni += sec & 0x3f;
-    uni <<= 6;
-    uni += third & 0x3f;
-  }
-  else if((first & 0xf8) == 0xf0){
-    int sec = **src;
-    (*src)++;
-    int third = **src;
-    (*src)++;
-    int fourth = **src;
-    (*src)++;
-    uni = first & 0x07;
-    uni <<= 6;
-    uni += sec & 0x3f;
-    uni <<= 6;
-    uni += third & 0x3f;
-    uni <<= 6;
-    uni += fourth & 0x3f;
-  }
-  return uni;
-}
-
 void strwstr(uint32_t *wstr, char *str){
   int i = 0;
   while(*str){
-    wstr[i++] = adv_unicode(&str);
+		wstr[i++] = sget_unicode(str, &str, utf_type);
   }
   wstr[i] = 0;
 }
@@ -660,7 +617,7 @@ void strwstr(uint32_t *wstr, char *str){
 void strnwstr(uint32_t *wstr, char *str, size_t n){
   int i = 0;
   while(*str && i < n){
-    wstr[i++] = adv_unicode(&str);
+		wstr[i++] = sget_unicode(str, &str, utf_type);
   }
   wstr[i] = 0;
 }
@@ -689,12 +646,35 @@ int wstrncmp(uint32_t *a, uint32_t *b, size_t n){
   return 0;
 }
 
+void pututf8(FILE *file, uint32_t pt){
+	if(pt < 128)
+		fputc(pt, file);
+	else if(pt < 2048){
+		fputc(0xc0 | (pt >> 6), file);
+		fputc(0x80 | (pt & 0x3f), file);
+	}
+	else if(pt < 65536){
+		fputc(0xe0 | (pt >> 12), file);
+		fputc(0x80 | ((pt >> 6) & 0x3f), file);
+		fputc(0x80 | (pt & 0x3f), file);
+	}
+	else{
+		fputc(0xf0 | (pt >> 18), file);
+		fputc(0x80 | ((pt >> 12) & 0x3f), file);
+		fputc(0x80 | ((pt >> 6) & 0x3f), file);
+		fputc(0x80 | (pt & 0x3f), file);
+	}
+}
+
 void fprintw(FILE *file, uint32_t *wstr){
   for(uint32_t *ptr = wstr; *ptr; ptr++){
 		if(*ptr <= 127 && *ptr != '\n' && *ptr != '\r')
 			fputc(*ptr, file);
-		else
+		else if(file == stdout || file == stderr)
 			fprintf(file, "[\\x%x]", *ptr);
+		else{
+			pututf8(file, *ptr);
+		}
   }
 }
 
@@ -702,8 +682,11 @@ void fprintwn(FILE *file, uint32_t *wstr, size_t n){
   for(uint32_t *ptr = wstr; *ptr && ptr < wstr + n; ptr++){
 		if(*ptr <= 127 && *ptr != '\n' && *ptr != '\r')
 			fputc(*ptr, file);
-		else
+		else if(file == stdout || file == stderr)
 			fprintf(file, "[\\x%x]", *ptr);
+		else{
+			pututf8(file, *ptr);
+		}
   }
 }
 

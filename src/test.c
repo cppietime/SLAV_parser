@@ -11,6 +11,12 @@ int main(){
 	slav_lang lang;
 	slav_updog(srcfil, &lang); /* Read and process the language */
 	fclose(srcfil);
+	if(lang.table == NULL){
+		fprintf(stderr, "An issue has occurred! The table could not be parsed!\n");
+		slav_squat(&lang);
+		regam_nfa_end();
+		return 1;
+	}
 	srcfil = fopen("./save.txt", "w");
 	slav_sugma(srcfil, &lang); /* Save the table to save.txt */
 	parsam_table_print(lang.table, stdout); /* Print the table to stdout */

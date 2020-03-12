@@ -13,7 +13,7 @@ static binode_t *atan_coef = NULL, *atanh_coef = NULL,
   *tau = NULL, *pi = NULL, *hpi = NULL, *qpi = NULL, *logtwo = NULL, *rttwo = NULL,
   *tmp0 = NULL, *tmp1 = NULL, *step = NULL,
   *twopow = NULL, *twomod = NULL,
-  *otmp0 = NULL, *otmp1 = NULL, *otmp2 = NULL, *otmp3 = NULL;
+  *otmp0 = NULL, *otmp1 = NULL, *otmp2 = NULL, *otmp3 = NULL, *otmp4, *otmp5;
 static int cur_bits = 0;
 
 void setup_consts(){
@@ -38,6 +38,8 @@ void setup_consts(){
     otmp1 = bigint_link();
     otmp2 = bigint_link();
     otmp3 = bigint_link();
+    otmp4 = bigint_link();
+    otmp5 = bigint_link();
     step = bigint_link();
     hpi = bigint_link();
     pi = bigint_link();
@@ -94,7 +96,7 @@ void setup_consts(){
   arrshf(hpi->value->digits, bigint_size, -1);
   bicpy(qpi, hpi);
   arrshf(qpi->value->digits, bigint_size, -1);
-  ltobi(logtwo, 0);
+  dtobi(logtwo, 0);
   cur_bits = 1 + bigfix_point * 32;
   for(size_t i = 1; i < cur_bits; i ++){
       dtobi(factor, 1.0/i);
@@ -113,6 +115,9 @@ void deconst_consts(){
 }
 
 void CORDIC(binode_t *xout, binode_t *yout, binode_t *theta, int mode, int bkd){
+	biconv(xout, TYPE_BIGFIX);
+	biconv(yout, TYPE_BIGFIX);
+	biconv(theta, TYPE_BIGFIX);
   int repeat = 1;
   size_t start = 0;
   dtobi(step, 2);
@@ -181,7 +186,7 @@ void big_cossin(binode_t *cosdst, binode_t *sindst, binode_t *theta){
     bisub(factor, hpi, factor); //Factor = pi/2 - factor if factor > pi/4
   }
   dtobi(res0, 1);
-  ltobi(res1, 0);
+  dtobi(res1, 0);
   CORDIC(res0, res1, factor, MODE_ANG, 0);
   if(swap){
     bicpy(factor, res0);
@@ -208,7 +213,7 @@ void big_hypot_atan2(binode_t *hypot, binode_t *atan, binode_t *x, binode_t *y){
     bicpy(res0, res1);
     bicpy(res1, factor);
   }
-  ltobi(factor, 0);
+  dtobi(factor, 0);
   CORDIC(res0, res1, factor, MODE_ANG, 1); // res1 = 0 here
   if(swap){
     bisub(factor, hpi, factor);
@@ -232,7 +237,7 @@ void big_coshsinh(binode_t *coshdst, binode_t *sinhdst, binode_t *theta){
   idivmod(twopow, twomod, factor, logtwo);
   int pow2 = twopow->value->digits[0] * (twopow->value->sign ? -1 : 1);
   dtobi(res0, 1);
-  ltobi(res1, 0);
+  dtobi(res1, 0);
   CORDIC(res0, res1, twomod, MODE_HYP, 0);
   biadd(tmp0, res0, res1); //tmp0 = e^twomod
   bisub(tmp1, res0, res1); //tmp1 = e^-twomod
@@ -252,7 +257,7 @@ void big_hhyp_atanh(binode_t *hhyp, binode_t *atanh, binode_t *x, binode_t *y){
   bicpy(res1, y);
   res0->value->sign = 0;
   res1->value->sign = 0;
-  ltobi(factor, 0);
+  dtobi(factor, 0);
   CORDIC(res0, res1, factor, MODE_HYP, 1);
   factor->value->sign = neg;
   if(hhyp != NULL)
@@ -318,14 +323,32 @@ void big_tan(binode_t *dst, binode_t *src){
 
 void big_acos(binode_t *dst, binode_t *src){
   dtobi(otmp2, 1);
-  big_hhyp_atanh(otmp3, NULL, otmp2, src); //otmp0 = sqrt(1 - src^2)
-  big_hypot_atan2(NULL, dst, src, otmp3);
+	int sign = src->value->sign;
+	big_abs(otmp3, src);
+	big_abs(otmp4, src);
+	if(bicmp(otmp3, otmp2) >= 0){
+		dtobi(dst, 0);
+	}else{
+		big_hhyp_atanh(otmp3, NULL, otmp2, otmp3); //otmp0 = sqrt(1 - src^2)
+		big_hypot_atan2(NULL, dst, otmp4, otmp3);
+	}
+	if(sign){
+		bisub(dst, pi, dst);
+	}
 }
 
 void big_asin(binode_t *dst, binode_t *src){
   dtobi(otmp2, 1);
-  big_hhyp_atanh(otmp3, NULL, otmp2, src);
-  big_hypot_atan2(NULL, dst, otmp3, src);
+	int sign = src->value->sign;
+	big_abs(otmp3, src);
+	big_abs(otmp4, src);
+	if(bicmp(otmp3, otmp2) >= 0){
+		bicpy(dst, hpi);
+	}else{
+		big_hhyp_atanh(otmp3, NULL, otmp2, otmp3);
+		big_hypot_atan2(NULL, dst, otmp3, otmp4);
+	}
+	dst->value->sign = sign;
 }
 
 void big_atan(binode_t *dst, binode_t *src){
@@ -402,4 +425,17 @@ void big_abs(binode_t *dst, binode_t *src){
 void big_negate(binode_t *dst, binode_t *src){
 	bicpy(dst, src);
 	dst->value->sign ^= 1;
+}
+
+int main(){
+	bigint_init(4);
+	bigint_resize(4, 3);
+	binode_t *num = bigint_link(), *fac = bigint_link(), *prod = bigint_link();
+	dtobi(num, -60);
+	bi_printhex(stdout, num);printf("\n");
+	big_asinh(fac, num);
+	bi_printhex(stdout, fac);printf("\n");
+	bi_printdec(stdout, fac, 5);
+	bigint_destroy();
+	return 0;
 }

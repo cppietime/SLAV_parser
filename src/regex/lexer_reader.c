@@ -104,6 +104,8 @@ datam_darr* regam_repls(FILE *src, parsam_table *table){
 }
 
 void regam_repls_delete(datam_darr *repls){
+	if(repls == NULL)
+		return;
 	regam_repl repl;
 	for(size_t i = 0; i < repls->n; i ++){
 		datam_darr_get(repls, &repl, i);

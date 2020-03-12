@@ -1,6 +1,6 @@
 /*
 Utility functions for SLAV file I/O and image processing.
-These functions are part of the slavio library. Run make io_shared/io_static to compile it.
+These functions are part of the slavio library. Run make _slavio to compile it.
 */
 
 #ifndef _SLAVIO_H

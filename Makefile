@@ -9,53 +9,37 @@ OBJ_UTILS = $(patsubst %.c, %.o, $(SRC_UTILS))
 SRC_BIGI = $(wildcard src/bigint/*.c)
 OBJ_BIGI = $(patsubst %.c, %.o, $(SRC_BIGI))
 
-.PHONY: bigint_static
-bigint_static: libs/libslavint.a
+static_%: libs/lib%.a
+	
+
+shared_%: libs/%.so
+	
+
 libs/libslavint.a: $(OBJ_BIGI)
-	ar rcs libs/libslavint.a $(OBJ_BIGI)
-
-.PHONY: bigint_shared
-bigint_shared: libs/slavint.so
 libs/slavint.so: $(OBJ_BIGI)
-	$(CC) $(FLAGS) --shared -o libs/slavint.so $(OBJ_BIGI)
 
-.PHONY: slav_static
-slav_static: libs/libslav.a
-libs/libslav.a: $(OBJ_SLAV) $(OBJ_DAT)
-	ar rcs libs/libslav.a $(OBJ_SLAV) $(OBJ_DAT)
+libs/libslav.a: $(OBJ_SLAV) $(OBJ_DAT) $(OBJ_UTILS)
+libs/slav.so: $(OBJ_SLAV) libs/datam.so libs/slavio.so
 
-.PHONY: slav_shared
-slav_shared: libs/slav.so
-libs/slav.so: $(OBJ_SLAV) datatypes_shared
-	$(CC) $(FLAGS) --shared -o libs/slav.so libs/datam.so $(OBJ_SLAV)
-
-.PHONY: datatypes_static
-datatypes_static: libs/libdatam.a
 libs/libdatam.a: $(OBJ_DAT)
-	ar rcs libs/libdatam.a $(OBJ_DAT)
-
-.PHONY: datatypes_shared
-datatypes_shared: libs/datam.so
 libs/datam.so: $(OBJ_DAT)
-	$(CC) $(FLAGS) --shared -o libs/datam.so $(OBJ_DAT)
 
-.PHONY: io_static
-io_static: libs/libslavio.a
 libs/libslavio.a: $(OBJ_UTILS)
-	ar rcs libs/libslavio.a $(OBJ_UTILS)
-
-.PHONY: io_shared
-io_shared: libs/slavio.so
 libs/slavio.so: $(OBJ_UTILS)
-	$(CC) $(FLAGS) --shared -o libs/slavio.so $(OBJ_UTILS)
 
-test_static: slav_static
+libs/lib%.a:
+	ar rcs $@ $?
+
+libs/%.so:
+	$(CC) $(FLAGS) --shared -o $@ $?
+
+test_static: static_slav
 	$(CC) $(FLAGS) -o test/test_static src/test.c -Llibs -lslav
 
-test_shared: slav_shared datatypes_shared
+test_shared: shared_slav shared_slavio
 	cp libs/slav.so test
 	cp libs/datam.so test
-	$(CC) $(FLAGS) -o test/test_shared src/test.c libs/slav.so libs/datam.so
+	$(CC) $(FLAGS) -o test/test_shared src/test.c libs/slav.so libs/datam.so libs/slavio.so
 
 %.o: %.c
 	$(CC) $(FLAGS) -c -o $@ $<

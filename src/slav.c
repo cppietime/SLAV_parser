@@ -8,6 +8,11 @@ Written by Yaakov Schectman 2019.
 
 void slav_updog(FILE *src, slav_lang *dst){
 	dst->table = parsam_table_make(src);
+	if(dst->table == NULL){
+		dst->dfa = NULL;
+		dst->replacements = NULL;
+		return;
+	}
 	dst->dfa = regam_from_file(src, dst->table);
 	dst->replacements = regam_repls(src, dst->table);
 	regam_dfa_reduce(dst->dfa);

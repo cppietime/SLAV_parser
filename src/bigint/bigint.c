@@ -4,6 +4,7 @@
 #include <math.h>
 #include <getopt.h>
 #include <time.h>
+#include <limits.h>
 #include "bigint.h"
 
 #define SIZE_MUL 15
@@ -111,21 +112,23 @@ void bigint_resize(size_t n, size_t f){
         }
         binode_t* node = bigint_head;
         while(node!=NULL){
-            int offset = f - bigfix_point;
-            bigint_t* old = node->value;
-            bigint_t* new = calloc(sizeof(bigint_t) + sizeof(unsigned long)*digs, 1);
-            unsigned long* interim = calloc(sizeof(unsigned long)*digs, 1);
-            memcpy(interim, old->digits, sizeof(unsigned long)*bigint_size);
-            node->value = new;
-            new->sign = old->sign;
-            if(offset>=0){
-                memcpy(new->digits + offset, interim, sizeof(unsigned long)*(bigint_size-offset));
-            }else{
-                offset = -offset;
-                memcpy(new->digits, interim + offset, sizeof(unsigned long)*(bigint_size-offset));
-            }
-            free(interim);
-            free(old);
+						if(node->type == TYPE_BIGFIX){
+							int offset = f - bigfix_point;
+							bigint_t* old = node->value;
+							bigint_t* new = calloc(sizeof(bigint_t) + sizeof(unsigned long)*digs, 1);
+							unsigned long* interim = calloc(sizeof(unsigned long)*digs, 1);
+							memcpy(interim, old->digits, sizeof(unsigned long)*bigint_size);
+							node->value = new;
+							new->sign = old->sign;
+							if(offset>=0){
+									memcpy(new->digits + offset, interim, sizeof(unsigned long)*(bigint_size-offset));
+							}else{
+									offset = -offset;
+									memcpy(new->digits, interim + offset, sizeof(unsigned long)*(bigint_size-offset));
+							}
+							free(interim);
+							free(old);
+						}
             node = node->next;
         }
         bigint_size = digs;
@@ -162,6 +165,7 @@ binode_t* bigint_link(){
     binode_t* node = malloc(sizeof(binode_t));
     node->value = ret;
     node->next = bigint_head;
+		node->type = TYPE_BIGINT;
     bigint_head = node;
     return node;
 }
@@ -182,6 +186,27 @@ void bigint_unlink(binode_t* big){
         prev = next;
         next = next->next;
     }
+}
+
+void biconv(binode_t *num, int target){
+	if(num->type == target)
+		return;
+	switch(num->type){
+		case TYPE_BIGINT:{
+			arrshf(num->value->digits, bigint_size, bigfix_point * 32);
+			break;
+		}
+		case TYPE_BIGFIX:{
+			unsigned long incr = hibit(num->value->digits, bigfix_point) == bigfix_point * 32;
+			arrshf(num->value->digits, bigint_size, -bigfix_point * 32);
+			if(num->value->sign)
+				arrsub(num->value->digits, num->value->digits, bigint_size, &incr, 1);
+			else
+				arradd(num->value->digits, num->value->digits, bigint_size, &incr, 1);
+			break;
+		}
+	}
+	num->type = target;
 }
 
 int arradd(unsigned long* dst, unsigned long* left, size_t llen, unsigned long* right, size_t rlen){
@@ -393,6 +418,7 @@ void fp_kara(binode_t* dstn, binode_t* leftn, binode_t* rightn){
         dst->digits[i] = work[bigint_size*6 + pos];
     }
     dst->sign = sign;
+		dstn->type = TYPE_BIGFIX;
 }
 
 void ip_kara(binode_t *dst, binode_t *left, binode_t *right){
@@ -400,16 +426,60 @@ void ip_kara(binode_t *dst, binode_t *left, binode_t *right){
   bigfix_point = 0;
   fp_kara(dst, left, right);
   bigfix_point = opt;
+	dst->type = TYPE_BIGINT;
 }
 
-void bi_printhex(binode_t *num){
+void bi_printhex(FILE *dst, binode_t *num){
   if(num->value->sign)
-    printf("-");
-  printf("0x");
+    fprintf(dst, "-");
+  fprintf(dst, "0x");
   for(int i = bigint_size - 1; i >= 0; i--){
-    printf("%08x", num->value->digits[i]);
+    fprintf(dst, "%08x", num->value->digits[i]);
   }
-  printf( "* 2 ** -%d", bigfix_point * 32);
+	if(num->type == TYPE_BIGFIX)
+		fprintf(dst, "* 2 ** -%d", bigfix_point * 32);
+}
+
+void bi_printdec(FILE *dst, binode_t *num, size_t lim){
+	static binode_t *ten = NULL, *tmp, *digit;
+	static char buffer[1024];
+	if(ten == NULL){
+		ten = bigint_link();
+		tmp = bigint_link();
+		digit = bigint_link();
+	}
+	ltobi(ten, 10);
+	digit->type = num->type;
+	bicpy(tmp, num);
+	tmp->value->sign = 0;
+	if(num->value->sign)
+		fputc('-', dst);
+	int ptr = 0;
+	arrshf(tmp->value->digits, bigint_size, -bigfix_point * 32);
+	tmp->type = TYPE_BIGINT;
+	while(hibit(tmp->value->digits, bigint_size) > 0){
+		idivmod(tmp, digit, tmp, ten);
+		buffer[ptr++] = '0' + digit->value->digits[0];
+	}
+	for(; ptr; ptr --){
+		fputc(buffer[ptr - 1], dst);
+	}
+	if(num->type == TYPE_BIGFIX){
+		fputc('.', dst);
+		ptr = 0;
+		ltobi(ten, 10);
+		bicpy(tmp, num);
+		tmp->value->sign = 0;
+		while(hibit(tmp->value->digits, bigint_size) > 0 && lim){
+			memset(tmp->value->digits + bigfix_point, 0, 4);
+			ip_kara(tmp, tmp, ten);
+			bicpy(digit, tmp);
+			// bi_printhex(stdout, digit);printf("K\n");
+			int c = '0' + digit->value->digits[bigfix_point];
+			fputc(c, dst);
+			lim--;
+		}
+	}
 }
 
 int ocmp(binode_t* big, long long smol){
@@ -463,6 +533,7 @@ int bicmp(binode_t *left, binode_t *right){
 void bicpy(binode_t* dst, binode_t* src){
     if(dst != src)
       memcpy(dst->value, src->value, sizeof(bigint_t*)+sizeof(unsigned long)*bigint_size);
+		dst->type = src->type;
 }
 
 void ltobi(binode_t* dst, long long src){
@@ -477,6 +548,7 @@ void ltobi(binode_t* dst, long long src){
     if(1<bigint_size){
         big->digits[1] = src>>32;
     }
+		dst->type = TYPE_BIGINT;
 }
 
 void dtobi(binode_t* dst, double src){
@@ -503,6 +575,7 @@ void dtobi(binode_t* dst, double src){
         bigness /= place;
         bigness /= place;
     }
+		dst->type = TYPE_BIGFIX;
 }
 
 void fpinc(binode_t* dst, binode_t* src){
@@ -513,6 +586,7 @@ void fpinc(binode_t* dst, binode_t* src){
         arrsub(dst->value->digits+bigfix_point, dst->value->digits+bigfix_point, bigint_size-bigfix_point, &one, one);
     else
         arradd(dst->value->digits+bigfix_point, dst->value->digits+bigfix_point, bigint_size-bigfix_point, &one, one);
+		dst->type = TYPE_BIGFIX;
 }
 
 void fpdec(binode_t* dst, binode_t* src){
@@ -523,9 +597,13 @@ void fpdec(binode_t* dst, binode_t* src){
         arradd(dst->value->digits+bigfix_point, dst->value->digits+bigfix_point, bigint_size-bigfix_point, &one, one);
     else
         arrsub(dst->value->digits+bigfix_point, dst->value->digits+bigfix_point, bigint_size-bigfix_point, &one, one);
+		dst->type = TYPE_BIGFIX;
 }
 
 void biadd(binode_t* dst, binode_t* left, binode_t* right){
+		if(left->type != right->type){
+			fprintf(stderr, "Error: Adding mismatching numeric types!\n");
+		}
     bigint_t* a = left->value;
     bigint_t* b = right->value;
     bigint_t* c = dst->value;
@@ -544,9 +622,13 @@ void biadd(binode_t* dst, binode_t* left, binode_t* right){
         arradd(c->digits, c->digits, bigint_size, &one, 1);
     }
     else c->sign = a->sign;
+		dst->type = left->type;
 }
 
 void bisub(binode_t* dst, binode_t* left, binode_t* right){
+		if(left->type != right->type){
+			fprintf(stderr, "Error: Subtracting mismatching numeric types!\n");
+		}
     bigint_t* a = left->value;
     bigint_t* b = right->value;
     bigint_t* c = dst->value;
@@ -565,6 +647,7 @@ void bisub(binode_t* dst, binode_t* left, binode_t* right){
         arradd(c->digits, c->digits, bigint_size, &one, 1);
     }
     else c->sign = a->sign;
+		dst->type = left->type;
 }
 
 void mandelitr(binode_t* x, binode_t* y, binode_t* max, binode_t* ct){
@@ -641,6 +724,9 @@ void arrdivmod(unsigned long *quo, unsigned long *mod, unsigned long *num, unsig
 }
 
 void idivmod(binode_t* quo, binode_t* mod, binode_t* num, binode_t* den){
+	if(num->type != den->type){
+		fprintf(stderr, "Warning! Dividng mismatching type!\n");
+	}
   int sign = num->value->sign != den->value->sign;
   unsigned long *qsrc = NULL, *msrc = NULL;
   if(quo != NULL)
@@ -652,6 +738,7 @@ void idivmod(binode_t* quo, binode_t* mod, binode_t* num, binode_t* den){
     quo->value->sign = sign;
   }
   if(mod != NULL){
+		mod->type = num->type;
     if(sign){
       mod->value->sign = 0;
       if(hibit(mod->value->digits, bigint_size)){
@@ -664,11 +751,6 @@ void idivmod(binode_t* quo, binode_t* mod, binode_t* num, binode_t* den){
     }
     mod->value->sign = den->value->sign;
   }
-}
-
-void fdiv(binode_t *quo, binode_t *num, binode_t *den){
-  idivmod(quo, NULL, num, den);
-  arrshf(quo->value->digits, bigint_size, bigfix_point * 32);
 }
 
 #undef SIZE_MUL

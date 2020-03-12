@@ -98,6 +98,8 @@ void regam_nstate_delete(regam_nstate *state){
 }
 
 void regam_nfa_delete(regam_nfa *nfa){
+		if(nfa == NULL)
+			return;
     if(nfa->accepts != NULL){
         datam_darr_delete(nfa->accepts);
     }
