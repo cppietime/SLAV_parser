@@ -7,6 +7,7 @@ Written by Yaakov Schectman 2019.
 #include <stdio.h>
 #include <stdint.h>
 #include "regam.h"
+#include "slavio.h"
 
 /* Make an AST to crange */
 void regam_crange_build(regam_crange *dst, parsam_ast *src){
@@ -102,6 +103,18 @@ void regam_crange_build(regam_crange *dst, parsam_ast *src){
     }
 }
 
+/* Sort help func */
+int crange_cmp(const void *va, const void *vb){
+	const regam_crange *a = va, *b = vb;
+	int sdif = (int)(a->start) - (int)(b->start);
+	if(sdif)
+		return sdif;
+	sdif = (int)(a->end) - (int)(b->end);
+	if(sdif)
+		return sdif;
+	return 0;
+}
+
 /* Build a character class of one or more chars */
 regam_cclass* regam_cclass_build(parsam_ast *src){
     if(src->symbol.type == Terminal || src->symbol.id != Elem){
@@ -128,7 +141,7 @@ regam_cclass* regam_cclass_build(parsam_ast *src){
         }
         regam_cclass *ret = malloc(sizeof(regam_cclass) + sizeof(regam_crange) * len);
         ret->n = len;
-        ret->exclude = exclude;
+        ret->exclude = 0;
         for(size_t i = 0; i < len; i ++){
             parsam_ast *ctype;
             if(i == len-1){
@@ -139,6 +152,34 @@ regam_cclass* regam_cclass_build(parsam_ast *src){
             regam_crange_build(ret->ranges + len - 1 - i, ctype);
             ccol = ccol->subtrees[0];
         }
+				if(exclude){
+					qsort(ret->ranges, len, sizeof(regam_crange), crange_cmp);
+					uint32_t last = 0;
+					size_t ignore = 0;
+					for(size_t i = 0; i < len; i++){
+						uint32_t end = ret->ranges[i].start;
+						uint32_t next = ret->ranges[i].end;
+						if(end - 1 < last){
+							ret->ranges[i].start = UNICODE_MAX;
+							ret->ranges[i].end = UNICODE_MAX;
+							ignore++;
+						}else{
+							ret->ranges[i].start = last;
+							ret->ranges[i].end = end - 1;
+						}
+						ret->ranges[i].spec = None;
+						last = next + 1;
+					}
+					qsort(ret->ranges, len, sizeof(regam_crange), crange_cmp);
+					if(last <= UNICODE_MAX){
+						ret = realloc(ret, sizeof(regam_cclass) + sizeof(regam_crange) * (len - ignore + 1));
+						ret->n = ret->n + 1 - ignore;
+						ret->ranges[len - ignore] = (regam_crange){.start = last, .end = UNICODE_MAX, .spec = None};
+					}else{
+						ret = realloc(ret, sizeof(regam_cclass) + sizeof(regam_crange) * (len - ignore));
+						ret->n -= ignore;
+					}
+				}
         return ret;
     }else if(src->n == 1){ /* C */
         regam_cclass *ret = malloc(sizeof(regam_cclass) + sizeof(regam_crange));
@@ -251,9 +292,9 @@ void regam_crange_print(regam_crange *crange){
         case Dot: printf("{.}");break;
         default:{
             if(crange->start == crange->end){
-                printf("%c", crange->start);
+                printf("%d ", crange->start);
             }else{
-                printf("%c-%c", crange->start, crange->end);
+                printf("%d-%d ", crange->start, crange->end);
             }
         }
     }

@@ -197,29 +197,14 @@ void regam_nfa_tag(regam_nfa *nfa, uint32_t tag);
 /* Conversion of NFA to DFA. */
 
 /* Reverses/splits exclusion and dot transitions as needed */
-void regam_transition_monofy(datam_darr *list);
+// void regam_transition_monofy(datam_darr *list);
 
-/* Type needed for separating ranges */
-typedef struct {
-    uint32_t pos; /* Spot signified */
-    uint32_t id; /* ID of target */
-    char type; /* 0 - start, 1 - end */
-} regam_triplet;
-
-/* Takes a list of transitions and makes sure it all transitions to do not overlap */
-void regam_transition_unique(datam_darr *list);
-
-/* Recursively calculates the epsilon closure of a state */
-void regam_epsilon_closure(regam_nstate *state);
-
-/* Gets the state ID of the new state for a collection of many states. May create a new state if needed */
-uint32_t regam_compound_id(datam_hashtable *keyset, int del);
-
-/* Prints the closure */
-void regam_print_closure(regam_nstate *state);
-
-/* Go from NFA to DFA */
-regam_nfa* regam_to_dfa(regam_nfa *nfa);
+// /* Type needed for separating ranges */
+// typedef struct {
+    // uint32_t pos; /* Spot signified */
+    // uint32_t id; /* ID of target */
+    // char type; /* 0 - start, 1 - end */
+// } regam_triplet;
 
 /* Delete all irrelevant states and consolidate state no's */
 void regam_dfa_reduce(regam_nfa *dfa);
@@ -271,5 +256,13 @@ void regam_dfa_save(FILE *dst, regam_nfa *dfa);
 
 /* Load from file */
 regam_nfa* regam_dfa_load(FILE *src);
+
+
+
+/* =========================================================================================================== */
+/* Cheating */
+
+/* Run an NFA nondeterministically. I couldn't quite get DFAize working consistently so uhhh oh well */
+uint32_t* regam_cheat(uint32_t *src, size_t n, regam_nfa *nfa, uint32_t *dst);
 
 #endif

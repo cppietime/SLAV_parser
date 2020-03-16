@@ -9,6 +9,7 @@ Written by Yaakov Schectman 2019.
 #include <string.h>
 #include <ctype.h>
 #include "regam.h"
+#include "slavio.h"
 
 /* TODO I still have to do this */
 extern parsam_table *regex_table;
@@ -24,9 +25,18 @@ regam_nfa* regam_from_file(FILE *src, parsam_table *table){
     datam_darr *nfas = datam_darr_new(sizeof(regam_nfa*));
     while(1){
         lptr = 0;
+				char ch = fgetc(src);
+				if(ch != '\r' && ch != '\n')
+					fseek(src, ftell(src) - 1, SEEK_SET);
         while(1){
-            char ch = fgetc(src);
+            ch = fgetc(src);
             if(ch == ':' || ch == '\n' || ch == 0 || ch == EOF || ch == '\r'){
+							if(ch == '\n'){
+								ch = fgetc(src);
+								if(ch != '\r'){
+									fseek(src, ftell(src)-1, SEEK_SET);
+								}
+							}
                 break;
             }
             line[lptr++] = ch;
@@ -66,26 +76,34 @@ regam_nfa* regam_from_file(FILE *src, parsam_table *table){
     regam_nfa *nfa;
     datam_darr_get(nfas, &nfa, 0);
     datam_darr_delete(nfas);
-    regam_nfa *dfa = regam_to_dfa(nfa);
-    regam_nfa_delete(nfa);
-    return dfa;
+    return nfa;
 }
 
 datam_darr* regam_repls(FILE *src, parsam_table *table){
     datam_darr *repls = datam_darr_new(sizeof(regam_repl));
     static char line[1024];
     while(1){
-		line[0] = 0;
-			fgets(line, 1024, src);
+			line[0] = 0;
+			int ch = fgetc(src);
+			if(feof(src))
+				break;
+			if(ch != '\n' && ch != '\r'){
+				fseek(src, -1, SEEK_CUR);
+			}
+			bin_fgets(line, 1024, src);
 			if(line[0] == 0 || line[0] == '\n' || line[0] == '\r' || line[0] == EOF){
 					break;
 			}
 			char *end = line + strlen(line) - 1;
-			while(end > line && isspace(*end)){
+			while(end > line + 1 && isspace(*end)){
 				end--;
 			}
 			*(end+1) = 0;
 			char *sp1 = strchr(line, ' ');
+			if(sp1 == NULL){
+				printf("SP1 null\n");
+				exit(1);
+			}
 			char *sp2 = strchr(sp1+1, ' ');
 			*sp1 = 0;
 			*sp2 = 0;

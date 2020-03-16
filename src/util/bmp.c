@@ -268,13 +268,13 @@ void Bmp_dump(FILE* dst, Bitmap* bitmap){
     fprintf(dst, "Bitmap with bpp: %d\nSize: %d, %d\nCompression: %d\nImage size: %d\nPitch: %d\n",bitmap->bps,
         bitmap->width, bitmap->height, bitmap->dib->compression, bitmap->dib->bitmap_size, bitmap->row_bytes);
     if(bitmap->dib->compression == BI_BITFIELDS){
-        fprintf(dst, "R: %p, G: %p, B: %p\n", bitmap->R, bitmap->G, bitmap->B);
+        fprintf(dst, "R: %08x, G: %08x, B: %08x\n", bitmap->R, bitmap->G, bitmap->B);
     }
     if(bitmap->bps<=8){
         int cols = bitmap->colors;
         if(cols==0)cols = 1<<bitmap->bps;
         for(int i=0; i<cols; i++){
-            fprintf(dst, "Palette[%d]: %p\n", i, bitmap->palette[i]);
+            fprintf(dst, "Palette[%d]: %08x\n", i, bitmap->palette[i]);
         }
     }
 }

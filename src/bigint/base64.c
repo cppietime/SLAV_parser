@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <string.h>
 #include <ctype.h>
 #include "bigint.h"
@@ -50,7 +51,7 @@ unsigned char* der_bigint(unsigned char *dst, binode_t *bigint){
 
 unsigned char* der_read(binode_t *dst, unsigned char *src){
   if(dst != NULL){
-    memset(dst->value->digits, 0, sizeof(unsigned long)*bigint_size);
+    memset(dst->value->digits, 0, sizeof(digit_t)*bigint_size);
     dst->value->sign = 0;
   }
   int id = *(src++); /* Skip ID, we'll assume it's good */
@@ -70,7 +71,7 @@ unsigned char* der_read(binode_t *dst, unsigned char *src){
     bigint_resize((bytes + 3) / 4, bigfix_point);
   }
   for(int i = bytes - 1; i >= 0; i --){
-    unsigned long byte = *(src++);
+    digit_t byte = *(src++);
     size_t digit = i >> 2, offset = i & 3;
     if(dst != NULL){
       dst->value->digits[digit] |= (byte << (offset << 3));

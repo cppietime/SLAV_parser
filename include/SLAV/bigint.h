@@ -6,13 +6,16 @@ A library for arbitrary precision integers and fixed-point binary.
 #define _H_BIGINT
 
 #include <stdio.h>
+#include <stdint.h>
+
+#define digit_t uint32_t
 
 /*
 Holds sign and digits of a multiple precision integer.
 */
 typedef struct _bigint_t{
     int sign;
-    unsigned long digits[0];
+    digit_t digits[0];
 } bigint_t;
 
 #define TYPE_BIGINT 0
@@ -29,14 +32,14 @@ struct _binode_t{
 		int type;
 };
 
-void farrprint(FILE *file, unsigned long*, size_t); /* Prints an array as hex in little-endian to a file */
-void sarrprint(char *dst, unsigned long*, size_t); /* Prints an array as hex in little-endian to a string */
-unsigned long n2n5(unsigned long);
+void farrprint(FILE *file, digit_t*, size_t); /* Prints an array as hex in little-endian to a file */
+void sarrprint(char *dst, digit_t*, size_t); /* Prints an array as hex in little-endian to a string */
+digit_t n2n5(digit_t);
 
 extern size_t bigint_size; /* Number of "digits" per bigint */
 extern size_t bigfix_point; /* Which digit is the ones place */
 extern binode_t* bigint_head; /* First binode in linked list of allocated */
-extern unsigned long *scrap, *nttspace, *ssmspace, *naispace; /* Scrap spaces */
+extern digit_t *scrap, *nttspace, *ssmspace, *naispace; /* Scrap spaces */
 
 void bigint_init(size_t); /* Initialize with a certain number of 32-bit words */
 void bigint_resize(size_t, size_t); /* Set the number of 32-bit words and the ones-word */
@@ -46,21 +49,22 @@ binode_t* bigint_link(); /* Return a new bignum, ready to use */
 void bigint_unlink(binode_t*); /* Destroy a single bignum */
 void biconv(binode_t *num, int type); /* Convert from one type to another */
 
-int arradd(unsigned long *dst, unsigned long *left, size_t llen, unsigned long *right, size_t rlen); /* Add array of nums nad return carry */
-int arrsub(unsigned long *dst, unsigned long *left, size_t llen, unsigned long *right, size_t rlen); /* Subtract right from left and return carry */
-void arrmul(unsigned long *dst, unsigned long *arr, unsigned long factor, size_t len); /* Multiply arr by factor and store in dst */
-int arrcmp(unsigned long *left, unsigned long *right, size_t len); /* Basically memcmp */
-void arrshf(unsigned long *arr, size_t len, int bits); /* Shift left or right by bits */
-void arrrev(unsigned long *arr, size_t len, int start, int end); /* Invert the array from start to end bits */
-void arrcyc(unsigned long *arr, size_t len, int offset); /* Cycle the array so that bit offset is the new boundary */
+int arradd(digit_t *dst, digit_t *left, size_t llen, digit_t *right, size_t rlen); /* Add array of nums nad return carry */
+int arrsub(digit_t *dst, digit_t *left, size_t llen, digit_t *right, size_t rlen); /* Subtract right from left and return carry */
+void arrmul(digit_t *dst, digit_t *arr, digit_t factor, size_t len); /* Multiply arr by factor and store in dst */
+int arrcmp(digit_t *left, digit_t *right, size_t len); /* Basically memcmp */
+void arrshf(digit_t *arr, size_t len, int bits); /* Shift left or right by bits */
+void arrrev(digit_t *arr, size_t len, int start, int end); /* Invert the array from start to end bits */
+void arrcyc(digit_t *arr, size_t len, int offset); /* Cycle the array so that bit offset is the new boundary */
 
-void kara_nat(unsigned long *left, unsigned long *right, size_t len, unsigned long *work); /* Karatsuba multiplication of left and right, stores result in left and right */
+void kara_nat(digit_t *left, digit_t *right, size_t len, digit_t *work); /* Karatsuba multiplication of left and right, stores result in left and right */
 
 int ocmp(binode_t*, long long); /* Compare a bignum to a long */
 int bicmp(binode_t *left, binode_t *right); /* Compare to bignums */
 void bicpy(binode_t*, binode_t*); /* Copy one bignum to another */
 void ltobi(binode_t*, long long); /* Long to bignum */
 void dtobi(binode_t*, double); /* Double to bignum */
+double bitod(binode_t *src); /* bignum to double */
 void biadd(binode_t*, binode_t*, binode_t*);
 void bisub(binode_t*, binode_t*, binode_t*);
 void fpinc(binode_t*, binode_t*); /* Increment bignum by one */
@@ -71,9 +75,12 @@ void ip_kara(binode_t*, binode_t*, binode_t*); /* Multiply as integers */
 
 void bi_printhex(FILE *dst, binode_t *num); /* Print bignum as hex */
 void bi_printdec(FILE *dst, binode_t *num, size_t lim); /* Print bignum as decimal with a limit of post-point */
+void bi_sprintdec(char *dst, binode_t *num, size_t lim); /* Print bignum as decimal with a limit of post-point */
 
-unsigned long hibit(unsigned long *arr, size_t len); /* Get the highest set-bit. 1 for least sig bit, 0 for zero */
-void arrdivmod(unsigned long *quo, unsigned long *mod, unsigned long *num, unsigned long *den, size_t len, unsigned long *work); /* Get quotient and modulus */
+void strtobi_dec(binode_t *dst, char *src, char **eptr); /* Read a decimal representation */
+
+digit_t hibit(digit_t *arr, size_t len); /* Get the highest set-bit. 1 for least sig bit, 0 for zero */
+void arrdivmod(digit_t *quo, digit_t *mod, digit_t *num, digit_t *den, size_t len, digit_t *work); /* Get quotient and modulus */
 void idivmod(binode_t*, binode_t*, binode_t*, binode_t*); /* Divides as integers and gives quotient and modulus. Questionable w/ negatives */
 
 /* ============================= FIXED POINT MATH FUNCTIONS ============================ */
@@ -115,12 +122,12 @@ void big_pow(binode_t *dst, binode_t *base, binode_t *ex);
 /* ============================= CRYPTOGRAPHY FUNCTIONS ============================== */
 
 void seedrand();
-void randbits(unsigned long *arr, size_t len, int bits); /* Generates random bits */
-void arrexpmod(unsigned long *dst, unsigned long *base, unsigned long *pow, unsigned long *mod, size_t len, unsigned long *work);
+void randbits(digit_t *arr, size_t len, int bits); /* Generates random bits */
+void arrexpmod(digit_t *dst, digit_t *base, digit_t *pow, digit_t *mod, size_t len, digit_t *work);
 void ipowmod(binode_t *dst, binode_t *base, binode_t *pow, binode_t *mod);
 
-int miller_rabin(unsigned long *num, size_t len, int tries, unsigned long *work);
-int arrprime(unsigned long *dst, size_t len, int tries, int acc, int pow);
+int miller_rabin(digit_t *num, size_t len, int tries, digit_t *work);
+int arrprime(digit_t *dst, size_t len, int tries, int acc, int pow);
 int probprime(binode_t *dst, int pow);
 
 void ext_euclid(binode_t *gdc, binode_t *inv, binode_t *a, binode_t *b);
@@ -175,8 +182,8 @@ int rsakey_load(rsakey_t *key, FILE *file); /* Read whichever format is availabl
 #define BORUM_OFB 4
 #define BORUM_CTR 5
 
-void borum_file(FILE *out, FILE *in, unsigned long *key, int mode);
-void murob_file(FILE *out, FILE *in, unsigned long *key, int mode);
+void borum_file(FILE *out, FILE *in, digit_t *key, int mode);
+void murob_file(FILE *out, FILE *in, digit_t *key, int mode);
 void rsa_borum(FILE *out, FILE *in, rsakey_t *key, int mode);
 void rsa_murob(FILE *out, FILE *in, rsakey_t *key, int mode);
 

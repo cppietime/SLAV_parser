@@ -5,12 +5,13 @@ Some functions for randomness/security shit.
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 #include <time.h>
 #include <ctype.h>
 #include "bigint.h"
 
 #define TEST_PRIMES 64
-static unsigned long first_primes[TEST_PRIMES] = {3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59,
+static digit_t first_primes[TEST_PRIMES] = {3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59,
                                                   61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137,
                                                   139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 223, 227,
                                                   229, 233, 239, 241, 251, 257, 263, 269, 271, 277, 281, 283, 293, 307, 311, 313};
@@ -23,12 +24,12 @@ void seedrand(){
   srand(seed);
 }
 
-void randbits(unsigned long *arr, size_t len, int bits){
-  memset(arr, 0, sizeof(unsigned long)*len);
+void randbits(digit_t *arr, size_t len, int bits){
+  memset(arr, 0, sizeof(digit_t)*len);
   size_t digit = 0;
   int offset = 0;
   while(bits > 0 && digit < len){
-    unsigned long randbit = rand() & 255;
+    digit_t randbit = rand() & 255;
     if(bits < 32)
       randbit &= (1<<(bits))-1;
     arr[digit] |= randbit << offset;
@@ -41,20 +42,20 @@ void randbits(unsigned long *arr, size_t len, int bits){
   }
 }
 
-void arrexpmod(unsigned long *dst, unsigned long *base, unsigned long *pow, unsigned long *mod, size_t len, unsigned long *work){
-  unsigned long *factor = work + len * 8;
-  unsigned long *accum = work + len * 9;
-  unsigned long *tpow = work + len * 10;
-  unsigned long *sfac = work + len * 11;
-  unsigned long *mulwork = work;
-  memcpy(factor, base, sizeof(unsigned long)*len);
-  memset(accum, 0, sizeof(unsigned long)*len);
+void arrexpmod(digit_t *dst, digit_t *base, digit_t *pow, digit_t *mod, size_t len, digit_t *work){
+  digit_t *factor = work + len * 8;
+  digit_t *accum = work + len * 9;
+  digit_t *tpow = work + len * 10;
+  digit_t *sfac = work + len * 11;
+  digit_t *mulwork = work;
+  memcpy(factor, base, sizeof(digit_t)*len);
+  memset(accum, 0, sizeof(digit_t)*len);
   accum[0] = 1;
-  memcpy(tpow, pow, sizeof(unsigned long)*len);
-  unsigned long one = 1;
+  memcpy(tpow, pow, sizeof(digit_t)*len);
+  digit_t one = 1;
   while(hibit(tpow, len)>0){
     if((tpow[0] & 1) == 0){ //Square  factor
-      memcpy(sfac, factor, sizeof(unsigned long)*len);
+      memcpy(sfac, factor, sizeof(digit_t)*len);
       kara_nat(factor, sfac, len, mulwork);
       if(hibit(sfac, len)){
         fprintf(stderr, "Warning! Multiplication overflow!\n");
@@ -66,7 +67,7 @@ void arrexpmod(unsigned long *dst, unsigned long *base, unsigned long *pow, unsi
       arrshf(tpow, len, -1);
     }
     if(tpow[0]&1){ //Multiply accum
-      memcpy(sfac, factor, sizeof(unsigned long)*len);
+      memcpy(sfac, factor, sizeof(digit_t)*len);
       kara_nat(accum, sfac, len, mulwork);
       if(hibit(sfac, len)){
         fprintf(stderr, "Warning! Multiplication overflow!\n");
@@ -78,11 +79,11 @@ void arrexpmod(unsigned long *dst, unsigned long *base, unsigned long *pow, unsi
       tpow[0] &= ~1L;
     }
   }
-  memcpy(dst, accum, sizeof(unsigned long)*len);
+  memcpy(dst, accum, sizeof(digit_t)*len);
 }
 
 void ipowmod(binode_t *dst, binode_t *base, binode_t *pow, binode_t *mod){
-  unsigned long *msrc = NULL;
+  digit_t *msrc = NULL;
   if(mod != NULL)
     msrc = mod->value->digits;
   if(pow->value->sign){
@@ -96,16 +97,16 @@ void ipowmod(binode_t *dst, binode_t *base, binode_t *pow, binode_t *mod){
   dst->value->sign = sign;
 }
 
-int miller_rabin(unsigned long *num, size_t len, int tries, unsigned long *work){
-  unsigned long *ework = work;
-  unsigned long *attempt = work + len * 12;
-  unsigned long *odd = work + len *13;
-  unsigned long *debug = work + len * 14;
-  unsigned long two = 2;
-  unsigned long one = 1;
+int miller_rabin(digit_t *num, size_t len, int tries, digit_t *work){
+  digit_t *ework = work;
+  digit_t *attempt = work + len * 12;
+  digit_t *odd = work + len *13;
+  digit_t *debug = work + len * 14;
+  digit_t two = 2;
+  digit_t one = 1;
   // Test against first someodd primes
-  memcpy(odd, num, sizeof(unsigned long)*len);
-  memset(debug, 0, sizeof(unsigned long)*len);
+  memcpy(odd, num, sizeof(digit_t)*len);
+  memset(debug, 0, sizeof(digit_t)*len);
   for(int i=0; i<TEST_PRIMES; i++){
     debug[0] = first_primes[i];
     arrdivmod(NULL, attempt, odd, debug, len, ework);
@@ -115,7 +116,7 @@ int miller_rabin(unsigned long *num, size_t len, int tries, unsigned long *work)
   }
   // Now do MR
   odd[0] &= ~1;
-  unsigned long twopow = 0;
+  digit_t twopow = 0;
   while((odd[0] & 1) == 0){
     twopow++;
     arrshf(odd, len, -1);
@@ -124,7 +125,7 @@ int miller_rabin(unsigned long *num, size_t len, int tries, unsigned long *work)
     randbits(attempt, len, len*32);
     arradd(attempt, attempt, len, &two, 1);
     arrdivmod(NULL, attempt, attempt, num, len, ework);
-    memcpy(debug, attempt, sizeof(unsigned long)*len);
+    memcpy(debug, attempt, sizeof(digit_t)*len);
     arrexpmod(attempt, attempt, odd, num, len, ework);
     if(hibit(attempt, len) == 1){
       continue;
@@ -135,8 +136,8 @@ int miller_rabin(unsigned long *num, size_t len, int tries, unsigned long *work)
     }
     arrsub(attempt, attempt, len, &one, 1);
     int isprime = 0;
-    for(unsigned long j = 0; j < twopow; j ++){
-      memcpy(ework + len*8, attempt, sizeof(unsigned long)*len);
+    for(digit_t j = 0; j < twopow; j ++){
+      memcpy(ework + len*8, attempt, sizeof(digit_t)*len);
       kara_nat(attempt, ework+len*8, len, ework);
       arrdivmod(NULL, attempt, attempt, num, len, ework); //Square attempt mod num 
       arradd(attempt, attempt, len, &one, 1);
@@ -155,7 +156,7 @@ int miller_rabin(unsigned long *num, size_t len, int tries, unsigned long *work)
 
 #undef TEST_PRIMES
 
-int arrprime(unsigned long *arr, size_t len, int tries, int acc, int pow){
+int arrprime(digit_t *arr, size_t len, int tries, int acc, int pow){
   for(int i = 0; i < tries; i ++){
     randbits(arr, len, pow-1);
     arr[pow/32] |= 1 << (pow%32);
@@ -226,7 +227,7 @@ void ext_euclid(binode_t *gcd, binode_t *inv, binode_t *a, binode_t *b){
 
 int rsa_keygen(rsakey_t *key, size_t bits){
   static binode_t *totient = NULL, *gcd  = NULL;
-  static unsigned long one = 1;
+  static digit_t one = 1;
   if(totient == NULL){
     totient = bigint_link();
     gcd = bigint_link();
@@ -266,7 +267,7 @@ int rsa_keygen(rsakey_t *key, size_t bits){
           break;
       }
     }
-    memset(key->pub_exp->value->digits, 0, sizeof(unsigned long)*bigint_size);
+    memset(key->pub_exp->value->digits, 0, sizeof(digit_t)*bigint_size);
     key->pub_exp->value->digits[fbit/32] = 1 << (fbit%32);
     key->pub_exp->value->digits[0] |= 1;
     ext_euclid(gcd, key->pri_exp, totient, key->pub_exp);
@@ -419,7 +420,7 @@ unsigned char* rsa_readkey_public(rsakey_t *key, unsigned char *src){
 
 int rsakey_dump_private(FILE *file, rsakey_t *key){
   fputs("-----BEGIN RSA PRIVATE KEY-----\n", file);
-  unsigned char *buffer = malloc(bigint_size * sizeof(unsigned long) * 8), *bptr;
+  unsigned char *buffer = malloc(bigint_size * sizeof(digit_t) * 8), *bptr;
   rsa_writekey(buffer, NULL, &bptr, NULL, key);
   size_t hex_len = (bptr - buffer);
   size_t b64_len = (hex_len + 2)/3*4;
@@ -434,7 +435,7 @@ int rsakey_dump_private(FILE *file, rsakey_t *key){
 
 int rsakey_dump_public(FILE *file, rsakey_t *key){
   fputs("-----BEGIN RSA PUBLIC KEY-----\n", file);
-  unsigned char *buffer = malloc(bigint_size * sizeof(unsigned long) * 3), *bptr;
+  unsigned char *buffer = malloc(bigint_size * sizeof(digit_t) * 3), *bptr;
   rsa_writekey(NULL, buffer, NULL, &bptr, key);
   size_t hex_len = (bptr - buffer);
   size_t b64_len = (hex_len + 2)/3*4;
@@ -455,7 +456,7 @@ int rsakey_load_private(rsakey_t *key, FILE *file){
     fseek(file, fail_pos, SEEK_SET);
     return 0;
   }
-  unsigned char *buffer = malloc((bigint_size * sizeof(unsigned long) * 8 + 2) / 3 * 4 + 1);
+  unsigned char *buffer = malloc((bigint_size * sizeof(digit_t) * 8 + 2) / 3 * 4 + 1);
   if(!load_b64(buffer, file, '-')){
     fseek(file, fail_pos, SEEK_SET);
     free(buffer);
@@ -484,7 +485,7 @@ int rsakey_load_public(rsakey_t *key, FILE *file){
     fseek(file, fail_pos, SEEK_SET);
     return 0;
   }
-  unsigned char *buffer = malloc((bigint_size * sizeof(unsigned long) * 3 + 2) / 3 * 4 + 1);
+  unsigned char *buffer = malloc((bigint_size * sizeof(digit_t) * 3 + 2) / 3 * 4 + 1);
   if(!load_b64(buffer, file, '-')){
     fseek(file, fail_pos, SEEK_SET);
     free(buffer);

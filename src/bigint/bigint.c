@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <math.h>
 #include <getopt.h>
 #include <time.h>
@@ -12,13 +13,13 @@
 size_t bigint_size = 1;
 size_t bigfix_point = 0;
 binode_t* bigint_head = NULL;
-unsigned long *scrap = NULL,
+digit_t *scrap = NULL,
     *nttspace = NULL,
     *ssmspace = NULL,
     *naispace = NULL;
 
-unsigned long n2n5(unsigned long n){
-    unsigned long n2 = 1L<<n;
+digit_t n2n5(digit_t n){
+    digit_t n2 = 1L<<n;
     while(n%2==0){
         n>>=1;
     }
@@ -27,17 +28,17 @@ unsigned long n2n5(unsigned long n){
     return n2;
 }
 
-void farrprint(FILE *file, unsigned long* digs, size_t len){
+void farrprint(FILE *file, digit_t* digs, size_t len){
     fprintf(file, "0x");
     for(int i=len-1; i>=0; i--){
-        fprintf(file, "%.8x", digs[i]);
+        fprintf(file, "%.8lx", digs[i]);
     }
 }
 
-void sarrprint(char *dst, unsigned long* digs, size_t len){
+void sarrprint(char *dst, digit_t* digs, size_t len){
     sprintf(dst, "0x");
     for(int i=len-1; i>=0; i--){
-        sprintf(dst, "%.8x", digs[i]);
+        sprintf(dst, "%.8lx", digs[i]);
     }
 }
 
@@ -54,30 +55,30 @@ void needed_space(size_t size){
     if(naispace != NULL){
         free(naispace);
     }
-    naispace = malloc(sizeof(unsigned long)*size*2);
+    naispace = malloc(sizeof(digit_t)*size*2);
     size_t kara_space = size*SIZE_MUL;
-    scrap = malloc(sizeof(unsigned long)*kara_space);
+    scrap = malloc(sizeof(digit_t)*kara_space);
     size_t ntt_space = 0;
     size_t mul_space = 0;
     int ct=0;
-    unsigned long lbits = size<<5;
+    digit_t lbits = size<<5;
     while(1){
-        unsigned long bits = 1;
-        unsigned long x = 0;
+        digit_t bits = 1;
+        digit_t x = 0;
         while(bits<lbits){
             x++;
             bits<<=1;
         }
-        unsigned long n = x>>1, k = x-n, n2 = n2n5(n), y = n + (2<<k);
+        digit_t n = x>>1, k = x-n, n2 = n2n5(n), y = n + (2<<k);
         y += (n2 - (y%n2))%n2;
-        unsigned long Y = 1;
+        digit_t Y = 1;
         while(Y<y)Y<<=1;
         if(ct==0){
             ntt_space = Y>>2;
             ct=1;
         }
         if(n<7)n=7;
-        mul_space += sizeof(unsigned long)*4*Y<<(n-5);
+        mul_space += sizeof(digit_t)*4*Y<<(n-5);
         if(Y<=32)break;
         if(Y>=lbits)break;
         lbits = Y;
@@ -92,10 +93,10 @@ void bigint_init(size_t size){
     binode_t* node = bigint_head;
     while(node!=NULL){
         bigint_t* old = node->value;
-        bigint_t* new = calloc(sizeof(bigint_t) + sizeof(unsigned long)*digs, 1);
+        bigint_t* new = calloc(sizeof(bigint_t) + sizeof(digit_t)*digs, 1);
         node->value = new;
         new->sign = old->sign;
-        memcpy(new->digits, old->digits, sizeof(unsigned long)*bigint_size);
+        memcpy(new->digits, old->digits, sizeof(digit_t)*bigint_size);
         free(old);
         node = node->next;
     }
@@ -115,16 +116,16 @@ void bigint_resize(size_t n, size_t f){
 						if(node->type == TYPE_BIGFIX){
 							int offset = f - bigfix_point;
 							bigint_t* old = node->value;
-							bigint_t* new = calloc(sizeof(bigint_t) + sizeof(unsigned long)*digs, 1);
-							unsigned long* interim = calloc(sizeof(unsigned long)*digs, 1);
-							memcpy(interim, old->digits, sizeof(unsigned long)*bigint_size);
+							bigint_t* new = calloc(sizeof(bigint_t) + sizeof(digit_t)*digs, 1);
+							digit_t* interim = calloc(sizeof(digit_t)*digs, 1);
+							memcpy(interim, old->digits, sizeof(digit_t)*bigint_size);
 							node->value = new;
 							new->sign = old->sign;
 							if(offset>=0){
-									memcpy(new->digits + offset, interim, sizeof(unsigned long)*(bigint_size-offset));
+									memcpy(new->digits + offset, interim, sizeof(digit_t)*(bigint_size-offset));
 							}else{
 									offset = -offset;
-									memcpy(new->digits, interim + offset, sizeof(unsigned long)*(bigint_size-offset));
+									memcpy(new->digits, interim + offset, sizeof(digit_t)*(bigint_size-offset));
 							}
 							free(interim);
 							free(old);
@@ -161,7 +162,7 @@ void bigint_destroy(){
 }
 
 binode_t* bigint_link(){
-    bigint_t* ret = calloc(sizeof(bigint_t) + sizeof(unsigned long)*bigint_size, 1);
+    bigint_t* ret = calloc(sizeof(bigint_t) + sizeof(digit_t)*bigint_size, 1);
     binode_t* node = malloc(sizeof(binode_t));
     node->value = ret;
     node->next = bigint_head;
@@ -197,7 +198,7 @@ void biconv(binode_t *num, int target){
 			break;
 		}
 		case TYPE_BIGFIX:{
-			unsigned long incr = hibit(num->value->digits, bigfix_point) == bigfix_point * 32;
+			digit_t incr = hibit(num->value->digits, bigfix_point) == bigfix_point * 32;
 			arrshf(num->value->digits, bigint_size, -bigfix_point * 32);
 			if(num->value->sign)
 				arrsub(num->value->digits, num->value->digits, bigint_size, &incr, 1);
@@ -209,7 +210,7 @@ void biconv(binode_t *num, int target){
 	num->type = target;
 }
 
-int arradd(unsigned long* dst, unsigned long* left, size_t llen, unsigned long* right, size_t rlen){
+int arradd(digit_t* dst, digit_t* left, size_t llen, digit_t* right, size_t rlen){
     long long int carry = 0, tmp = 0;
     for(int i=0; i<llen; i++){
         tmp = left[i] + carry;
@@ -220,7 +221,7 @@ int arradd(unsigned long* dst, unsigned long* left, size_t llen, unsigned long* 
     return carry;
 }
 
-int arrsub(unsigned long* dst, unsigned long* left, size_t llen, unsigned  long* right, size_t rlen){
+int arrsub(digit_t* dst, digit_t* left, size_t llen, digit_t* right, size_t rlen){
     long long int carry = 0, tmp = 0;
     for(int i=0; i<llen; i++){
         tmp = left[i] + carry;
@@ -231,7 +232,7 @@ int arrsub(unsigned long* dst, unsigned long* left, size_t llen, unsigned  long*
     return carry;
 }
 
-void arrmul(unsigned long* dst, unsigned long* src, unsigned long fac, size_t len){
+void arrmul(digit_t* dst, digit_t* src, digit_t fac, size_t len){
     unsigned long long carry = 0, tmp = 0;
     for(int i=0; i<len; i++){
         tmp = (unsigned long long)src[i]*(unsigned long long)fac + carry;
@@ -240,9 +241,9 @@ void arrmul(unsigned long* dst, unsigned long* src, unsigned long fac, size_t le
     }
 }
 
-void naive_mul(unsigned long* dst, unsigned long* left, unsigned long* right, size_t len){
-    memset(dst, 0, sizeof(unsigned long)*2*len);
-    static unsigned long tmp[2];
+void naive_mul(digit_t* dst, digit_t* left, digit_t* right, size_t len){
+    memset(dst, 0, sizeof(digit_t)*2*len);
+    static digit_t tmp[2];
     for(int i=0; i<len*2; i++){
         for(int a=0; a<=i && a<len; a++){
             // printf("Naive\n");
@@ -256,7 +257,7 @@ void naive_mul(unsigned long* dst, unsigned long* left, unsigned long* right, si
     }
 }
 
-void kara_nat(unsigned long* left, unsigned long* right, size_t len, unsigned long* work){
+void kara_nat(digit_t* left, digit_t* right, size_t len, digit_t* work){
   static int depth = 0;
     if(len==1){
         unsigned long long prod = (unsigned long long)*left * (unsigned long long)*right;
@@ -267,16 +268,16 @@ void kara_nat(unsigned long* left, unsigned long* right, size_t len, unsigned lo
     if(len<4){
         {
             naive_mul(naispace, left, right, len);
-            memcpy(left, naispace, sizeof(unsigned long)*len);
-            memcpy(right, naispace+len, sizeof(unsigned long)*len);
+            memcpy(left, naispace, sizeof(digit_t)*len);
+            memcpy(right, naispace+len, sizeof(digit_t)*len);
         }
         return;
     }
     depth++;
     int acarry = arradd(work, left, len/2, left+len/2, len/2);
-    memcpy(work+len, work, len/2*sizeof(unsigned long));
+    memcpy(work+len, work, len/2*sizeof(digit_t));
     int bcarry = arradd(work+len/2, right, len/2, right+len/2, len/2);
-    memcpy(work+len+len/2, work+len/2, len/2*sizeof(unsigned long));
+    memcpy(work+len+len/2, work+len/2, len/2*sizeof(digit_t));
     kara_nat(work, work+len/2, len/2, work+len*2);
     int carry = 0;
     if(acarry){
@@ -286,13 +287,13 @@ void kara_nat(unsigned long* left, unsigned long* right, size_t len, unsigned lo
         carry += arradd(work+len/2, work+len/2, len-len/2, work+len, len/2);
     }
     if(acarry && bcarry){
-        unsigned long one = 1;
+        digit_t one = 1;
         carry++;
     }
     kara_nat(left, right, len/2, work+len);
     kara_nat(left+len/2, right+len/2, len/2, work+len);
     for(size_t i=0; i<len/2; i++){
-        unsigned long tmp = left[i+len/2];
+        digit_t tmp = left[i+len/2];
         left[i+len/2] = right[i];
         right[i] = tmp;
     }
@@ -327,7 +328,7 @@ void kara_nat(unsigned long* left, unsigned long* right, size_t len, unsigned lo
     depth--;
 }
 
-int arrcmp(unsigned long* left, unsigned long* right, size_t len){
+int arrcmp(digit_t* left, digit_t* right, size_t len){
     for(int i=len-1; i>=0; i--){
         if(left[i] > right[i])
           return 1;
@@ -337,7 +338,7 @@ int arrcmp(unsigned long* left, unsigned long* right, size_t len){
     return 0;
 }
 
-void arrshf(unsigned long* dst, size_t len, int bits){
+void arrshf(digit_t* dst, size_t len, int bits){
     if(bits>0){ //left
         while(bits>=32){
             for(int i=len-1; i>0; i--){
@@ -347,9 +348,9 @@ void arrshf(unsigned long* dst, size_t len, int bits){
             bits-=32;
         }
         if(bits){
-          unsigned long carry = 0;
+          digit_t carry = 0;
           for(size_t i=0; i<len; i++){
-              unsigned long tmp = dst[i]>>(32-bits);
+              digit_t tmp = dst[i]>>(32-bits);
               dst[i] <<= bits;
               dst[i] += carry;
               carry = tmp;
@@ -365,9 +366,9 @@ void arrshf(unsigned long* dst, size_t len, int bits){
             bits-=32;
         }
         if(bits){
-          unsigned long carry = 0;
+          digit_t carry = 0;
           for(int i=len-1; i>=0; i--){
-              unsigned long tmp = dst[i]<<(32-bits);
+              digit_t tmp = dst[i]<<(32-bits);
               tmp &= 0xffffffff;
               dst[i] >>= bits;
               dst[i] += carry;
@@ -377,7 +378,7 @@ void arrshf(unsigned long* dst, size_t len, int bits){
     }
 }
 
-void arrrev(unsigned long *arr, size_t len, int start, int end){
+void arrrev(digit_t *arr, size_t len, int start, int end){
   for(int tbit = start; tbit < end; tbit++){
     int obit = end - 1 - (tbit - start);
     if(obit <= tbit)
@@ -392,24 +393,24 @@ void arrrev(unsigned long *arr, size_t len, int start, int end){
   }
 }
 
-void arrcyc(unsigned long *arr, size_t len, int offset){
+void arrcyc(digit_t *arr, size_t len, int offset){
   arrrev(arr, len, 0, offset);
   arrrev(arr, len, offset, len << 5);
   arrrev(arr, len, 0, len << 5);
 }
 
 void fp_kara(binode_t* dstn, binode_t* leftn, binode_t* rightn){
-    unsigned long* work = scrap;
+    digit_t* work = scrap;
     bigint_t *dst = dstn->value, *left = leftn->value, *right = rightn->value;
     int sign = left->sign != right->sign;
-    memcpy(work + bigint_size*6, left->digits, bigint_size*sizeof(unsigned long));
-    memcpy(work + bigint_size*7, right->digits, bigint_size*sizeof(unsigned long));
+    memcpy(work + bigint_size*6, left->digits, bigint_size*sizeof(digit_t));
+    memcpy(work + bigint_size*7, right->digits, bigint_size*sizeof(digit_t));
     kara_nat(work + bigint_size*6, work + bigint_size*7, bigint_size, work);
     size_t small = bigfix_point, big = bigint_size - bigfix_point;
     size_t minpos = small, maxpos = 2*bigint_size - big;
     if(minpos>0){
         if(work[bigint_size*6+minpos-1]>=(1<<31)){
-            unsigned long one = 1;
+            digit_t one = 1;
             arradd(work+bigint_size*6 + minpos, work+bigint_size*6 + minpos, bigint_size*2-minpos, &one, 1);
         }
     }
@@ -434,13 +435,44 @@ void bi_printhex(FILE *dst, binode_t *num){
     fprintf(dst, "-");
   fprintf(dst, "0x");
   for(int i = bigint_size - 1; i >= 0; i--){
-    fprintf(dst, "%08x", num->value->digits[i]);
+    fprintf(dst, "%08lx", num->value->digits[i]);
   }
 	if(num->type == TYPE_BIGFIX)
-		fprintf(dst, "* 2 ** -%d", bigfix_point * 32);
+		fprintf(dst, "* 2 ** -%ld", bigfix_point * 32);
+}
+
+void strtobi_dec(binode_t *dst, char *src, char **eptr){
+	dst->value->sign = 0;
+	char *ptr = src;
+	if(*ptr == '-'){
+		dst->value->sign = 1;
+		ptr++;
+	}
+	for(; *ptr >= '0' && *ptr <= '9'; ptr++){
+		arrmul(dst->value->digits, dst->value->digits, 10, bigint_size);
+		digit_t add = *ptr - '0';
+		arradd(dst->value->digits, dst->value->digits, bigint_size, &add, 1);
+	}
+	if(dst->type == TYPE_BIGFIX){
+		arrshf(dst->value->digits, bigint_size, bigfix_point * 32);
+		if(*ptr == '.'){
+			int sign = dst->value->sign;
+			memcpy(scrap, dst->value->digits + bigfix_point, (bigint_size - bigfix_point) * 4);
+			double lval = strtod(ptr, &ptr);
+			dtobi(dst, lval);
+			dst->value->sign = sign;
+			memcpy(dst->value->digits + bigfix_point, scrap, (bigint_size - bigfix_point) * 4);
+		}
+	}
+	if(eptr != NULL)
+		*eptr = ptr;
 }
 
 void bi_printdec(FILE *dst, binode_t *num, size_t lim){
+	if(hibit(num->value->digits, bigint_size) == 0){
+		fprintf(dst, "0");
+		return;
+	}
 	static binode_t *ten = NULL, *tmp, *digit;
 	static char buffer[1024];
 	if(ten == NULL){
@@ -455,7 +487,8 @@ void bi_printdec(FILE *dst, binode_t *num, size_t lim){
 	if(num->value->sign)
 		fputc('-', dst);
 	int ptr = 0;
-	arrshf(tmp->value->digits, bigint_size, -bigfix_point * 32);
+	if(num->type == TYPE_BIGFIX)
+		arrshf(tmp->value->digits, bigint_size, -bigfix_point * 32);
 	tmp->type = TYPE_BIGINT;
 	while(hibit(tmp->value->digits, bigint_size) > 0){
 		idivmod(tmp, digit, tmp, ten);
@@ -474,12 +507,62 @@ void bi_printdec(FILE *dst, binode_t *num, size_t lim){
 			memset(tmp->value->digits + bigfix_point, 0, 4);
 			ip_kara(tmp, tmp, ten);
 			bicpy(digit, tmp);
-			// bi_printhex(stdout, digit);printf("K\n");
 			int c = '0' + digit->value->digits[bigfix_point];
 			fputc(c, dst);
 			lim--;
 		}
 	}
+}
+
+void bi_sprintdec(char *dst, binode_t *num, size_t lim){
+	if(hibit(num->value->digits, bigint_size) == 0){
+		*dst++ = '0';
+		*dst = 0;
+		return;
+	}
+	static binode_t *ten = NULL, *tmp, *digit;
+	static char buffer[1024];
+	if(ten == NULL){
+		ten = bigint_link();
+		tmp = bigint_link();
+		digit = bigint_link();
+	}
+	ltobi(ten, 10);
+	digit->type = num->type;
+	bicpy(tmp, num);
+	tmp->value->sign = 0;
+	if(num->value->sign)
+		*dst++ = '-';
+	int ptr = 0;
+	if(num->type == TYPE_BIGFIX)
+		arrshf(tmp->value->digits, bigint_size, -bigfix_point * 32);
+	tmp->type = TYPE_BIGINT;
+	while(hibit(tmp->value->digits, bigint_size) > 0){
+		idivmod(tmp, digit, tmp, ten);
+		buffer[ptr++] = '0' + digit->value->digits[0];
+	}
+	for(; ptr; ptr --){
+		// fputc(buffer[ptr - 1], dst);
+		*dst++ = buffer[ptr - 1];
+	}
+	if(num->type == TYPE_BIGFIX){
+		// fputc('.', dst);
+		*dst++ = '.';
+		ptr = 0;
+		ltobi(ten, 10);
+		bicpy(tmp, num);
+		tmp->value->sign = 0;
+		while(hibit(tmp->value->digits, bigint_size) > 0 && lim){
+			memset(tmp->value->digits + bigfix_point, 0, 4);
+			ip_kara(tmp, tmp, ten);
+			bicpy(digit, tmp);
+			int c = '0' + digit->value->digits[bigfix_point];
+			// fputc(c, dst);
+			*dst++ = c;
+			lim--;
+		}
+	}
+	*dst = 0;
 }
 
 int ocmp(binode_t* big, long long smol){
@@ -532,14 +615,14 @@ int bicmp(binode_t *left, binode_t *right){
 
 void bicpy(binode_t* dst, binode_t* src){
     if(dst != src)
-      memcpy(dst->value, src->value, sizeof(bigint_t*)+sizeof(unsigned long)*bigint_size);
+      memcpy(dst->value, src->value, sizeof(bigint_t)+sizeof(digit_t)*bigint_size);
 		dst->type = src->type;
 }
 
 void ltobi(binode_t* dst, long long src){
     bigint_t* big = dst->value;
     big->sign=0;
-    memset(big->digits,0,sizeof(unsigned long)*bigint_size);
+    memset(big->digits,0,sizeof(digit_t)*bigint_size);
     if(src<0){
         src=-src;
         big->sign=1;
@@ -558,7 +641,7 @@ void dtobi(binode_t* dst, double src){
         src=-src;
         big->sign=1;
     }
-    memset(big->digits, 0, sizeof(unsigned long)*bigint_size);
+    memset(big->digits, 0, sizeof(digit_t)*bigint_size);
     unsigned long long place = 0x10000;
     double bigness = 1.0/place;
     bigness /= place;
@@ -567,7 +650,7 @@ void dtobi(binode_t* dst, double src){
       bigness *= place;
     }
     for(int i=bigint_size-1; i>=0; i--){
-        unsigned long dig = (src/bigness);
+        digit_t dig = (src/bigness);
         if(src>=bigness){
             big->digits[i] = dig;
             src -= bigness*dig;
@@ -578,10 +661,43 @@ void dtobi(binode_t* dst, double src){
 		dst->type = TYPE_BIGFIX;
 }
 
+double bitod(binode_t *src){
+	double ret = 0;
+	if(src->type == TYPE_BIGINT){
+		ret = src->value->digits[0];
+		if(bigint_size > 1){
+			double k = src->value->digits[1] << 16L;
+			k *= 1 << 16L;
+			ret += k;
+		}
+	}else{
+		double mul = 1;
+		for(size_t i = bigfix_point; i < bigint_size; i++){
+			double k = src->value->digits[i] * mul;
+			ret += k;
+			mul *= 0x10000;
+			mul *= 0x10000;
+		}
+		mul = 1;
+		for(size_t i = bigfix_point; i > 0; i--){
+			mul /= 0x10000;
+			mul /= 0x10000;
+			if(i - 1 >= bigint_size){
+				continue;
+			}
+			double k = src->value->digits[i - 1] * mul;
+			ret += k;
+		}
+	}
+	if(src->value->sign)
+		ret = -ret;
+	return ret;
+}
+
 void fpinc(binode_t* dst, binode_t* src){
-    unsigned long one = 1;
+    digit_t one = 1;
     if(dst!=src)
-        memcpy(dst->value, src->value, sizeof(bigint_t) + bigint_size*sizeof(unsigned long));
+        memcpy(dst->value, src->value, sizeof(bigint_t) + bigint_size*sizeof(digit_t));
     if(dst->value->sign)
         arrsub(dst->value->digits+bigfix_point, dst->value->digits+bigfix_point, bigint_size-bigfix_point, &one, one);
     else
@@ -590,9 +706,9 @@ void fpinc(binode_t* dst, binode_t* src){
 }
 
 void fpdec(binode_t* dst, binode_t* src){
-    unsigned long one = 1;
+    digit_t one = 1;
     if(dst!=src)
-        memcpy(dst->value, src->value, sizeof(bigint_t) + bigint_size*sizeof(unsigned long));
+        memcpy(dst->value, src->value, sizeof(bigint_t) + bigint_size*sizeof(digit_t));
     if(dst->value->sign)
         arradd(dst->value->digits+bigfix_point, dst->value->digits+bigfix_point, bigint_size-bigfix_point, &one, one);
     else
@@ -616,9 +732,9 @@ void biadd(binode_t* dst, binode_t* left, binode_t* right){
     if(carry){
         c->sign = 1-a->sign;
         for(int i=0; i<bigint_size; i++){
-            c->digits[i] = ~c->digits[i];
+            c->digits[i] = (~c->digits[i]) & 0xffffffff;
         }
-        unsigned long one = 1;
+        digit_t one = 1;
         arradd(c->digits, c->digits, bigint_size, &one, 1);
     }
     else c->sign = a->sign;
@@ -641,9 +757,9 @@ void bisub(binode_t* dst, binode_t* left, binode_t* right){
     if(carry){
         c->sign = 1-a->sign;
         for(int i=0; i<bigint_size; i++){
-            c->digits[i] = ~c->digits[i];
+            c->digits[i] = (~c->digits[i]) & 0xffffffff;
         }
-        unsigned long one = 1;
+        digit_t one = 1;
         arradd(c->digits, c->digits, bigint_size, &one, 1);
     }
     else c->sign = a->sign;
@@ -663,7 +779,7 @@ void mandelitr(binode_t* x, binode_t* y, binode_t* max, binode_t* ct){
     ltobi(r, 0);
     ltobi(i, 0);
     ltobi(ri, 0);
-    unsigned long one = 1;
+    digit_t one = 1;
     while(arrcmp(ct->value->digits,max->value->digits,bigint_size)<0){
         fp_kara(rr, r, r);
         fp_kara(ii, i, i);
@@ -678,10 +794,10 @@ void mandelitr(binode_t* x, binode_t* y, binode_t* max, binode_t* ct){
     }
 }
 
-unsigned long hibit(unsigned long *dat, size_t len){
+digit_t hibit(digit_t *dat, size_t len){
   for(int i=len-1; i>=0; i--){
     int bits = 0;
-    unsigned long digit = dat[i];
+    digit_t digit = dat[i];
     while(digit){
       bits++;
       digit>>=1;
@@ -692,14 +808,14 @@ unsigned long hibit(unsigned long *dat, size_t len){
   return 0;
 }
 
-void arrdivmod(unsigned long *quo, unsigned long *mod, unsigned long *num, unsigned long *den, size_t len, unsigned long *work){
-  memset(work, 0, sizeof(unsigned long)*len); //Quotient work
-  memcpy(work + len, num, sizeof(unsigned long)*len); //Mod work
+void arrdivmod(digit_t *quo, digit_t *mod, digit_t *num, digit_t *den, size_t len, digit_t *work){
+  memset(work, 0, sizeof(digit_t)*len); //Quotient work
+  memcpy(work + len, num, sizeof(digit_t)*len); //Mod work
   while(arrcmp(work + len, den, len) >= 0){
-    memcpy(work + len*3, work + len, sizeof(unsigned long)*len); //Temp num for current
+    memcpy(work + len*3, work + len, sizeof(digit_t)*len); //Temp num for current
     long bita = hibit(work + len, len), bitb = hibit(den, len);
     long bitdif = bita - bitb;
-    memcpy(work + len*2, den, sizeof(unsigned long)*len); //Temp den to be shifted
+    memcpy(work + len*2, den, sizeof(digit_t)*len); //Temp den to be shifted
     arrshf(work + len*2, len, bitdif);
     while(arrcmp(work + len, work + len*2, len) < 0){
       bitdif--;
@@ -710,17 +826,17 @@ void arrdivmod(unsigned long *quo, unsigned long *mod, unsigned long *num, unsig
       // arrshf(work + len, len, -1);
       // bitdif++;
     // }
-    unsigned long onebit = 1 << (bitdif%32);
+    digit_t onebit = 1 << (bitdif%32);
     size_t byteoff = bitdif/32;
     arradd(work + byteoff, work + byteoff, len - byteoff, &onebit, 1);
-    memcpy(work + len*2, den, sizeof(unsigned long)*len); //Temp den to be shifted
+    memcpy(work + len*2, den, sizeof(digit_t)*len); //Temp den to be shifted
     arrshf(work + len*2, len, bitdif);
     arrsub(work + len, work + len*3, len, work + len*2, len);
   }
   if(quo != NULL)
-    memcpy(quo, work, sizeof(unsigned long)*len);
+    memcpy(quo, work, sizeof(digit_t)*len);
   if(mod != NULL)
-    memcpy(mod, work+len, sizeof(unsigned long)*len);
+    memcpy(mod, work+len, sizeof(digit_t)*len);
 }
 
 void idivmod(binode_t* quo, binode_t* mod, binode_t* num, binode_t* den){
@@ -728,7 +844,7 @@ void idivmod(binode_t* quo, binode_t* mod, binode_t* num, binode_t* den){
 		fprintf(stderr, "Warning! Dividng mismatching type!\n");
 	}
   int sign = num->value->sign != den->value->sign;
-  unsigned long *qsrc = NULL, *msrc = NULL;
+  digit_t *qsrc = NULL, *msrc = NULL;
   if(quo != NULL)
     qsrc = quo->value->digits;
   if(mod != NULL)
@@ -744,7 +860,7 @@ void idivmod(binode_t* quo, binode_t* mod, binode_t* num, binode_t* den){
       if(hibit(mod->value->digits, bigint_size)){
         bisub(mod, den, mod);
         if(quo != NULL){
-          unsigned long one = 1;
+          digit_t one = 1;
           arradd(quo->value->digits, quo->value->digits, bigint_size, &one, 1);
         }
       }

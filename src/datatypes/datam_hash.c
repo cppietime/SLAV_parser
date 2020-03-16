@@ -25,13 +25,14 @@ void datam_unihash_init(datam_unihash *hash, size_t w, size_t k){
     if(hash->coeffs != NULL){
         free(hash->coeffs);
     }
-    hash->coeffs = malloc(sizeof(int32_t)*(k+1));
+    hash->coeffs = malloc(sizeof(int32_t) * (k + 1));
     uint32_t mask = (-1)<<(2*w);
     for(size_t i=0; i<k; i++){
         int32_t a = rand_bits(hash->w*2);
         a |= 1;
         a &= ~mask;
         a ^= 0x80000000 * (rand()&1);
+				hash->coeffs[i] = a;
     }
 }
 

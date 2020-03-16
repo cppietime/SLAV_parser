@@ -16,20 +16,21 @@ i-th round key is i-1th XOR key << i^2
 
 #include <string.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include "bigint.h"
 
-static unsigned long fac8_fac16[2] = {0xca400000, 0xbb517f3};
-static unsigned long fac8[2] = {0x9d80, 0};
+static digit_t fac8_fac16[2] = {0xca400000, 0xbb517f3};
+static digit_t fac8[2] = {0x9d80, 0};
 
 /* Swaps two bytes in a 128-bit block */
-void swap_bytes(unsigned long *block, int i0, int i1){
+void swap_bytes(digit_t *block, int i0, int i1){
   int digit = i0 / 4, offset = i0 % 4;
-  unsigned long chunk = (0xff) << (8 * offset);
-  unsigned long byte = (block[digit] >> (8 * offset)) & 0xff;
+  digit_t chunk = (0xff) << (8 * offset);
+  digit_t byte = (block[digit] >> (8 * offset)) & 0xff;
   block[digit] &= ~chunk;
   int tdigit = (i1 - 1)/4, toffset = (i1 - 1)%4;
-  unsigned long tchunk = (0xff) << (8 * toffset);
-  unsigned long tbyte = (block[tdigit] >> (8 * toffset)) & 0xff;
+  digit_t tchunk = (0xff) << (8 * toffset);
+  digit_t tbyte = (block[tdigit] >> (8 * toffset)) & 0xff;
   block[tdigit] &= ~tchunk;
   block[digit] |= tbyte << (8 * offset);
   block[tdigit] |= byte << (8 * toffset);
@@ -39,8 +40,8 @@ void swap_bytes(unsigned long *block, int i0, int i1){
 Permutations takes a number in the range of 0 - 16! and takes its modulus each number from 16 down to 2,
 and swaps the byte at that position with the counter's position.
  */
-void permute_bytes(unsigned long *block, unsigned long *numer){
-  unsigned long counter[2] = {0, 0}, remainder[2];
+void permute_bytes(digit_t *block, digit_t *numer){
+  digit_t counter[2] = {0, 0}, remainder[2];
   for(int i = 16; i > 1; i--){
     counter[0] = i;
     arrdivmod(numer, remainder, numer, counter, 2, scrap);
@@ -50,8 +51,8 @@ void permute_bytes(unsigned long *block, unsigned long *numer){
 }
 
 /* Reverses byte permutation */
-void depermute_bytes(unsigned long *block, unsigned long *numer){
-  unsigned long counter[2] = {0, 0}, remainder[2];
+void depermute_bytes(digit_t *block, digit_t *numer){
+  digit_t counter[2] = {0, 0}, remainder[2];
   int reverse[15];
   for(int i = 16; i > 1; i--){
     counter[0] = i;
@@ -65,15 +66,15 @@ void depermute_bytes(unsigned long *block, unsigned long *numer){
 }
 
 /* Swaps bits in a 128-bit block */
-void swap_bits(unsigned long *block, int i0, int i1){
+void swap_bits(digit_t *block, int i0, int i1){
   int bbit = 1 << (i1 - 1), sbit = 1 << i0;
   for(int j = 0; j < 16; j ++){
-    unsigned long byte = (block[j / 4] >> (8 * (j%4))) & 0xff;
+    digit_t byte = (block[j / 4] >> (8 * (j%4))) & 0xff;
     int bval = !!(byte & bbit), sval = !!(byte & sbit);
     byte &= ~(bbit | sbit);
     byte |= sval << (i1 - 1);
     byte |= bval << i0;
-    block[j / 4] &= ~((unsigned long)(0xff << (8 * (j%4))));
+    block[j / 4] &= ~((digit_t)(0xff << (8 * (j%4))));
     block[j / 4] |= byte << (8 * (j%4));
   }
 }
@@ -81,8 +82,8 @@ void swap_bits(unsigned long *block, int i0, int i1){
 /* Permutes bits going forward
 Bit permutation uses the same method as byte permutation but with 8!
 */
-void permute_bits(unsigned long *block, unsigned long *numer){
-  unsigned long counter[2] = {0, 0}, remainder[2];
+void permute_bits(digit_t *block, digit_t *numer){
+  digit_t counter[2] = {0, 0}, remainder[2];
   for(int i = 8; i > 1; i--){
     counter[0] = i;
     arrdivmod(numer, remainder, numer, counter, 2, scrap);
@@ -92,8 +93,8 @@ void permute_bits(unsigned long *block, unsigned long *numer){
 }
 
 /* Reverses bit permutations */
-void depermute_bits(unsigned long *block, unsigned long *numer){
-  unsigned long counter[2] = {0, 0}, remainder[2];
+void depermute_bits(digit_t *block, digit_t *numer){
+  digit_t counter[2] = {0, 0}, remainder[2];
   int reverse[7];
   for(int i = 8; i > 1; i--){
     counter[0] = i;
@@ -107,7 +108,7 @@ void depermute_bits(unsigned long *block, unsigned long *numer){
 }
 
 
-static unsigned long mask = (0x31L << 24) | (0x41L << 16) | (0x59L << 8) | 0x26L;
+static digit_t mask = (0x31L << 24) | (0x41L << 16) | (0x59L << 8) | 0x26L;
 
 /* Generates round keys from main key 
 Start by setting the first round's key to the main key.
@@ -116,16 +117,16 @@ then XOR against the main key. Add 0x53589732^i (taken from digits of PI)
 to the key. Permute bits using the previous key XOR 0x31415926 (digits of PI),
 and permute bytes by the main key XOR the same mask.
 */
-void roundkeys(unsigned long *dst, unsigned long *key, int rounds){
-  memcpy(dst, key, sizeof(unsigned long) * 4);
-  unsigned long term[8] = {0x53L, 0x58L, 0x97L, 0x32L};
-  unsigned long permut[8];
+void roundkeys(digit_t *dst, digit_t *key, int rounds){
+  memcpy(dst, key, sizeof(digit_t) * 4);
+  digit_t term[8] = {0x53L, 0x58L, 0x97L, 0x32L};
+  digit_t permut[8];
   for(int i = 1; i < rounds; i ++){
-    memcpy(term + 4, term, sizeof(unsigned long) * 4);
-    memcpy(dst + i * 4, key, sizeof(unsigned long) * 4);
+    memcpy(term + 4, term, sizeof(digit_t) * 4);
+    memcpy(dst + i * 4, key, sizeof(digit_t) * 4);
     arrcyc(dst + i * 4, 4, (i * i) % 128);
-    memcpy(permut, dst + (i - 1) * 4, sizeof(unsigned long) * 4);
-    memcpy(permut + 4, key, sizeof(unsigned long) * 4);
+    memcpy(permut, dst + (i - 1) * 4, sizeof(digit_t) * 4);
+    memcpy(permut + 4, key, sizeof(digit_t) * 4);
     for(int j = 0; j < 4; j++){
       dst[i * 4 + j] ^= dst[j];
       permut[j] ^= mask;
@@ -148,8 +149,8 @@ Subtract the column byte from 258, and the rowbyte from 260, then convert each t
 Add 5 to column's s and 3 to row's s.
 For each corresponding row and column, multiply the byte by the k, then xor by the s.
 */
-void perform_round(unsigned long *block, unsigned long *key){
-  unsigned long quotient[2], remainder[2], qf8[2], rf8[2];
+void perform_round(digit_t *block, digit_t *key){
+  digit_t quotient[2], remainder[2], qf8[2], rf8[2];
   arrdivmod(quotient, remainder, key, fac8_fac16, 2, scrap);
   arrdivmod(qf8, rf8, remainder, fac8, 2, scrap);
   permute_bits(block, rf8);
@@ -159,7 +160,7 @@ void perform_round(unsigned long *block, unsigned long *key){
   shift += stride * 8;
   arrcyc(block, 4, shift);
   for(int i = 0; i < 4; i ++){
-    unsigned long colbyte = (key[2] >> (8 * i)) & 0xff, rowbyte = (key[3] >> (8 * i)) & 0xff;
+    digit_t colbyte = (key[2] >> (8 * i)) & 0xff, rowbyte = (key[3] >> (8 * i)) & 0xff;
     colbyte = 258 - colbyte;
     rowbyte = 260 - rowbyte;
     int colbits = 0, rowbits = 0;
@@ -178,11 +179,11 @@ void perform_round(unsigned long *block, unsigned long *key){
     for(int j = 0; j < 4; j ++){
       block[j] ^= colbits << (i * 8);
       block[i] ^= rowbits << (j * 8);
-      unsigned long cpart = (block[j] >> (i * 8)) & 0xff;
+      digit_t cpart = (block[j] >> (i * 8)) & 0xff;
       cpart *= colbyte;
       block[j] &= ~(0xff << (i * 8));
       block[j] |= (cpart & 0xff) << (i * 8);
-      unsigned long rpart = (block[i] >> (j * 8)) & 0xff;
+      digit_t rpart = (block[i] >> (j * 8)) & 0xff;
       rpart *= rowbyte;
       block[i] &= ~(0xff << (j * 8));
       block[i] |= (rpart & 0xff) << (j * 8);
@@ -210,9 +211,9 @@ int inv_256(int odd){
 /* One reversed round for decryption on a single block
 Does all inverse operations of perform_round backwards.
 */
-void deperform_round(unsigned long *block, unsigned long *key){
+void deperform_round(digit_t *block, digit_t *key){
   for(int i = 3; i >= 0; i --){
-    unsigned long colbyte = (key[2] >> (8 * i)) & 0xff, rowbyte = (key[3] >> (8 * i)) & 0xff;
+    digit_t colbyte = (key[2] >> (8 * i)) & 0xff, rowbyte = (key[3] >> (8 * i)) & 0xff;
     colbyte = 258 - colbyte;
     rowbyte = 260 - rowbyte;
     int colbits = 0, rowbits = 0;
@@ -231,11 +232,11 @@ void deperform_round(unsigned long *block, unsigned long *key){
     if(rowbits % 8 == 0)
       rowbits += 3;
     for(int j = 3; j >= 0; j --){
-      unsigned long rpart = (block[i] >> (j * 8)) & 0xff;
+      digit_t rpart = (block[i] >> (j * 8)) & 0xff;
       rpart *= rowbyte;
       block[i] &= ~(0xff << (j * 8));
       block[i] |= (rpart & 0xff) << (j * 8);
-      unsigned long cpart = (block[j] >> (i * 8)) & 0xff;
+      digit_t cpart = (block[j] >> (i * 8)) & 0xff;
       cpart *= colbyte;
       block[j] &= ~(0xff << (i * 8));
       block[j] |= (cpart & 0xff) << (i * 8);
@@ -243,7 +244,7 @@ void deperform_round(unsigned long *block, unsigned long *key){
       block[i] ^= rowbits << (j * 8);
     }
   }
-  unsigned long quotient[2], remainder[2], qf8[2], rf8[2];
+  digit_t quotient[2], remainder[2], qf8[2], rf8[2];
   arrdivmod(quotient, remainder, key, fac8_fac16, 2, scrap);
   arrdivmod(qf8, rf8, remainder, fac8, 2, scrap);
   int q = quotient[0];
@@ -257,14 +258,14 @@ void deperform_round(unsigned long *block, unsigned long *key){
 
 #define COUNT 10
 
-static unsigned long rkeys[4 * COUNT];
+static digit_t rkeys[4 * COUNT];
 
 /* Encrypt a single block */
-void borum_block(unsigned char *output, unsigned char *input, unsigned long *key, int dir){
-  static unsigned long buffer[4];
+void borum_block(unsigned char *output, unsigned char *input, digit_t *key, int dir){
+  static digit_t buffer[4];
   dir = !!dir; /* Just set it to either 0 or 1 */
   for(int i = 0; i < 4; i++)
-    buffer[i] = (unsigned long)input[i * 4] | ((unsigned long)input[i * 4 + 1] << 8) | ((unsigned long)input[i * 4 + 2] << 16) | ((unsigned long)input[i * 4 + 3] << 24);
+    buffer[i] = (digit_t)input[i * 4] | ((digit_t)input[i * 4 + 1] << 8) | ((digit_t)input[i * 4 + 2] << 16) | ((digit_t)input[i * 4 + 3] << 24);
   for(int i = 0; i < COUNT; i ++){
     if(dir == BORUM_ENCRYPT)
       perform_round(buffer, rkeys + i * 4);
@@ -280,7 +281,7 @@ void borum_block(unsigned char *output, unsigned char *input, unsigned long *key
 }
 
 /* Encrypt the file given the symmetric key */
-void borum_file(FILE *out, FILE *in, unsigned long *key, int mode){
+void borum_file(FILE *out, FILE *in, digit_t *key, int mode){
   roundkeys(rkeys, key, COUNT);
   static unsigned char ibuf[16], obuf[16], prev_inp[16];
   long pos = ftell(in);
@@ -361,11 +362,11 @@ void borum_file(FILE *out, FILE *in, unsigned long *key, int mode){
 }
 
 /* Decrypt it for the given symmetric key */
-void murob_file(FILE *out, FILE *in, unsigned long *key, int mode){
+void murob_file(FILE *out, FILE *in, digit_t *key, int mode){
   roundkeys(rkeys, key, COUNT);
   static unsigned char ibuf[16], obuf[16], prev_inp[16];
   memset(prev_inp, 0, 16);
-  unsigned long flen = 0;
+  digit_t flen = 0;
   for(int i = 0; i < 4; i++){
     int byte = fgetc(in);
     flen |= byte << (i * 8);
@@ -374,7 +375,7 @@ void murob_file(FILE *out, FILE *in, unsigned long *key, int mode){
     flen += 16; /* Allow for random IV block */
   else if(mode == BORUM_PCBC || mode == BORUM_CFB || mode == BORUM_OFB || mode == BORUM_CTR)
     fread(prev_inp, 1, 16, in); /* Read in the IV now */
-  unsigned long written = 0;
+  digit_t written = 0;
   while(written < flen){
     int read = fread(ibuf, 1, 16, in);
     if(read == 0)

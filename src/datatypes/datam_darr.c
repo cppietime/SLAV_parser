@@ -32,6 +32,14 @@ void datam_darr_push(datam_darr *list, void *src){
     list->n ++;
 }
 
+void datam_darr_pushall(datam_darr *dst, datam_darr *src){
+	static unsigned char buff[2048];
+	for(size_t i = 0; i < src->n; i++){
+		datam_darr_get(src, buff, i);
+		datam_darr_push(dst, buff);
+	}
+}
+
 int datam_darr_pop(datam_darr *list, void *dst){
     if(list->n == 0){
         return 0;

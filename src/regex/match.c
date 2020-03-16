@@ -67,14 +67,14 @@ uint32_t* regam_match(uint32_t *src, size_t n, regam_nfa *dfa, uint32_t *type){
             }
             lacc = src + pos;
         }
-		if(pos == n){
-			break;
-		}
-        uint32_t sym = src[pos];
-        sid = transfor(state, sym);
-        if(sid == 0){
-            break;
-        }
+				if(pos == n){
+					break;
+				}
+				uint32_t sym = src[pos];
+				sid = transfor(state, sym);
+				if(sid == 0){
+						break;
+				}
     }
     return lacc;
 }
@@ -83,12 +83,7 @@ uint32_t regam_filter(uint32_t *p0, uint32_t *p1, uint32_t type, datam_darr *rep
     regam_repl repl;
     for(size_t i = 0; i < repls->n; i ++){
         datam_darr_get(repls, &repl, i);
-				printf("Check key (%d) ", p1 - p0);
-				fprintw(stdout, repl.key);
-				printf(" - ");
-				fprintwn(stdout, p0, p1 - p0);
 				int cmp = wstrncmp(p0, repl.key, p1 - p0);
-				printf(": %d\n", cmp);
         if(type == repl.base && !cmp){
             return repl.target;
         }
@@ -175,7 +170,8 @@ parsam_ast* regam_get_lexeme(){
 			return token_over();
 		}
 		uint32_t ttype;
-		uint32_t *eptr = regam_match(buffer, buf_size, prod_dfa, &ttype);
+		// uint32_t *eptr = regam_match(buffer, buf_size, prod_dfa, &ttype);
+		uint32_t *eptr = regam_cheat(buffer, buf_size, prod_dfa, &ttype);
 		if(eptr == NULL){
 			fprintf(stderr, "Error @ line %d: Unrecognized token: \"", line_no);
 			fprintwn(stderr, buffer, buf_size);

@@ -476,9 +476,9 @@ void regam_nfa_print(regam_nfa *nfa){
             if(t.exclude == -1){
                 printf("e ");
             }else if(t.exclude == 0){
-                printf("[%d-%d] ", t.start, t.end);
+                printf("[%lu-%lu] ", t.start, t.end);
             }else{
-                printf("[^%d-%d] ", t.start, t.end);
+                printf("[^%lu-%lu] ", t.start, t.end);
             }
         }
         if(stst->accept != 0){

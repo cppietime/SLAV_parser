@@ -6,6 +6,7 @@ Written by Yaakov Schectman 2019.
 #include <stdio.h>
 #include <stdlib.h>
 #include "parsam.h"
+#include "slavio.h"
 
 void parsam_ast_delete(parsam_ast *root){
     if(root->symbol.type == Nonterminal){
@@ -153,11 +154,12 @@ void parsam_ast_print(parsam_ast *ast, parsam_table *table, FILE* dst){
     }
     fprintf(dst, "%s", name);
     if(ast->lexeme != NULL){
-      fputs("(", stderr);
-      fprintw(stderr, ast->lexeme);
-      fputs(")", stderr);
-        // fprintf(dst, "(%s)", ast->lexeme);
-    }
+      fputs("(", dst);
+      fprintw(dst, ast->lexeme);
+      fputs(")", dst);
+    }else{
+			fprintf(dst, "(%d)", ast->rule);
+		}
     fprintf(dst, " l(%d) \t%p\n", ast->line_no, ast);
     if(ast->subtrees != NULL){
         tabs ++;

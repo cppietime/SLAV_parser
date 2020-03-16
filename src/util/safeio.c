@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdlib.h>
 #include "safeio.h"
 
 static int endian = -1;
@@ -193,17 +194,17 @@ uint32_t fget_unicode(FILE *src, int type){
 			break;
 		}
 		case TYPE_UTF32LE:{
-			unicode = safe_read(4, LITTLE_ENDIAN, src);
+			unicode = safe_read(4, SAFE_LITTLE_ENDIAN, src);
 			break;
 		}
 		case TYPE_UTF32BE:{
-			unicode = safe_read(4, BIG_ENDIAN, src);
+			unicode = safe_read(4, SAFE_BIG_ENDIAN, src);
 			break;
 		}
 		case TYPE_UTF16LE:{
-			unicode = safe_read(2, LITTLE_ENDIAN, src);
+			unicode = safe_read(2, SAFE_LITTLE_ENDIAN, src);
 			if(unicode >= 0xd800 && unicode < 0xdc00){ /* Surrogate */
-				int surr = safe_read(2, LITTLE_ENDIAN, src);
+				int surr = safe_read(2, SAFE_LITTLE_ENDIAN, src);
 				surr -= 0xdc00;
 				unicode -= 0xd800;
 				unicode = (unicode << 10) | surr;
@@ -211,9 +212,9 @@ uint32_t fget_unicode(FILE *src, int type){
 			break;
 		}
 		case TYPE_UTF16BE:{
-			unicode = safe_read(2, BIG_ENDIAN, src);
+			unicode = safe_read(2, SAFE_BIG_ENDIAN, src);
 			if(unicode >= 0xd800 && unicode < 0xdc00){ /* Surrogate */
-				int surr = safe_read(2, BIG_ENDIAN, src);
+				int surr = safe_read(2, SAFE_BIG_ENDIAN, src);
 				surr -= 0xdc00;
 				unicode -= 0xd800;
 				unicode = (unicode << 10) | surr;
@@ -227,29 +228,29 @@ uint32_t fget_unicode(FILE *src, int type){
 void fput_unicode(FILE *dst, int type, uint32_t pt){
 	switch(type){
 		case TYPE_UTF32LE:
-			safe_write(pt, 4, LITTLE_ENDIAN, dst);
+			safe_write(pt, 4, SAFE_LITTLE_ENDIAN, dst);
 			break;
 		case TYPE_UTF32BE:
-			safe_write(pt, 4, BIG_ENDIAN, dst);
+			safe_write(pt, 4, SAFE_BIG_ENDIAN, dst);
 			break;
 		case TYPE_UTF16LE:
 			if(pt >= 0x10000){
 				int hi = (pt >> 10);
 				int lo = pt & 0x1ff;
-				safe_write(hi + 0xd800, 2, LITTLE_ENDIAN, dst);
-				safe_write(lo + 0xdc00, 2, LITTLE_ENDIAN, dst);
+				safe_write(hi + 0xd800, 2, SAFE_LITTLE_ENDIAN, dst);
+				safe_write(lo + 0xdc00, 2, SAFE_LITTLE_ENDIAN, dst);
 			}else{
-				safe_write(pt, 2, LITTLE_ENDIAN, dst);
+				safe_write(pt, 2, SAFE_LITTLE_ENDIAN, dst);
 			}
 			break;
 		case TYPE_UTF16BE:
 			if(pt >= 0x10000){
 				int hi = (pt >> 10);
 				int lo = pt & 0x1ff;
-				safe_write(hi + 0xd800, 2, BIG_ENDIAN, dst);
-				safe_write(lo + 0xdc00, 2, BIG_ENDIAN, dst);
+				safe_write(hi + 0xd800, 2, SAFE_BIG_ENDIAN, dst);
+				safe_write(lo + 0xdc00, 2, SAFE_BIG_ENDIAN, dst);
 			}else{
-				safe_write(pt, 2, BIG_ENDIAN, dst);
+				safe_write(pt, 2, SAFE_BIG_ENDIAN, dst);
 			}
 			break;
 		case TYPE_UTF8:{
@@ -274,10 +275,109 @@ void fput_unicode(FILE *dst, int type, uint32_t pt){
 		}
 	}
 }
+void wstrstr(char *str, uint32_t *wstr){
+	int i = 0;
+	while(wstr[i]){
+		str[i] = wstr[i];
+		i++;
+	}
+	str[i] = 0;
+}
+
+void wstrcpy(uint32_t *dst, uint32_t *src){
+  for(uint32_t *ptr = src; *ptr; ptr++){
+    *(dst++) = *ptr;
+  }
+  *dst = 0;
+}
+
+void wstrncpy(uint32_t *dst, uint32_t *src, size_t n){
+  int i;
+  for(i=0; src[i] && i < n; i++){
+    dst[i] = src[i];
+  }
+  dst[i] = 0;
+}
+
+int wstrncmp(uint32_t *a, uint32_t *b, size_t n){
+  for(int i = 0; i < n; i++){
+    int dif = (int)(a[i]) - (int)(b[i]);
+    if(dif)
+      return dif;
+  }
+  return 0;
+}
+
+void pututf8(FILE *file, uint32_t pt){
+	if(pt < 128)
+		fputc(pt, file);
+	else if(pt < 2048){
+		fputc(0xc0 | (pt >> 6), file);
+		fputc(0x80 | (pt & 0x3f), file);
+	}
+	else if(pt < 65536){
+		fputc(0xe0 | (pt >> 12), file);
+		fputc(0x80 | ((pt >> 6) & 0x3f), file);
+		fputc(0x80 | (pt & 0x3f), file);
+	}
+	else{
+		fputc(0xf0 | (pt >> 18), file);
+		fputc(0x80 | ((pt >> 12) & 0x3f), file);
+		fputc(0x80 | ((pt >> 6) & 0x3f), file);
+		fputc(0x80 | (pt & 0x3f), file);
+	}
+}
+
+void fprintw(FILE *file, uint32_t *wstr){
+  for(uint32_t *ptr = wstr; *ptr; ptr++){
+		if(*ptr <= 127)
+			fputc(*ptr, file);
+		else if(file == stdout || file == stderr)
+			fprintf(file, "[\\x%x]", *ptr);
+		else{
+			pututf8(file, *ptr);
+		}
+  }
+}
+
+void fprintwn(FILE *file, uint32_t *wstr, size_t n){
+  for(uint32_t *ptr = wstr; *ptr && ptr < wstr + n; ptr++){
+		if(*ptr <= 127 && *ptr != '\n' && *ptr != '\r')
+			fputc(*ptr, file);
+		else if(file == stdout || file == stderr)
+			fprintf(file, "[\\x%x]", *ptr);
+		else{
+			pututf8(file, *ptr);
+		}
+  }
+}
+
+long wstrtol(uint32_t *wstr, uint32_t **end, int radix){
+  static char onechar[2] = {0, 0};
+  long ret = 0;
+  uint32_t *ptr;
+  for(ptr = wstr; *ptr; ptr++){
+		onechar[0] = *ptr;
+		if( (*ptr >= '0' && *ptr <= '9') || (*ptr >= 'A' && *ptr <= 'F') || (*ptr >= 'a' && *ptr <= 'f') ){
+			ret *= radix;
+			ret += strtol(onechar, NULL, radix);
+		}
+		else break;
+  }
+  if(end != NULL)
+    *end = ptr;
+	return ret;
+}
+
+size_t wstrlen(uint32_t *wstr){
+	size_t i;
+	for(i = 0; wstr[i]; i++);
+	return i;
+}
 
 void convert_utf(FILE *dst, int dtyp, FILE *src, int styp){
 	write_bom(dst, dtyp);
-	for(uint32_t point = fget_unicode(src, styp); point != EOF; point = fget_unicode(src, styp)){
+	for(uint32_t point = fget_unicode(src, styp); point != (uint32_t)EOF && !feof(src); point = fget_unicode(src, styp)){
 		fput_unicode(dst, dtyp, point);
 	}
 }
@@ -289,9 +389,9 @@ void check_endian(){
     } val;
     val.big = 1;
     if(val.small[0] == 1){
-        endian = LITTLE_ENDIAN;
+        endian = SAFE_LITTLE_ENDIAN;
     }else{
-        endian = BIG_ENDIAN;
+        endian = SAFE_BIG_ENDIAN;
     }
 }
 
@@ -304,8 +404,8 @@ void safe_write(uint64_t val, int size, int t_end, FILE* out){
     if(endian==-1){
         check_endian();
     }
-    if(t_end==LITTLE_ENDIAN){
-        if(endian==LITTLE_ENDIAN){
+    if(t_end==SAFE_LITTLE_ENDIAN){
+        if(endian==SAFE_LITTLE_ENDIAN){
             fwrite(&val,1,size,out);
         }else{
             for(int i=sizeof(uint64_t)-1; i>=sizeof(uint64_t)-size; i--){
@@ -313,7 +413,7 @@ void safe_write(uint64_t val, int size, int t_end, FILE* out){
             }
         }
     }else{
-        if(endian==BIG_ENDIAN){
+        if(endian==SAFE_BIG_ENDIAN){
             fwrite(&(data.bytes[sizeof(uint64_t)-size]),1,size,out);
         }else{
             for(int i=size-1; i>=0; i--){
@@ -332,8 +432,8 @@ uint64_t safe_read(int size, int t_end, FILE* in){
     if(endian==-1){
         check_endian();
     }
-    if(t_end==LITTLE_ENDIAN){
-        if(endian==LITTLE_ENDIAN){
+    if(t_end==SAFE_LITTLE_ENDIAN){
+        if(endian==SAFE_LITTLE_ENDIAN){
             for(int i=0; i<size; i++){
                 data.bytes[i] = fgetc(in);
             }
@@ -343,7 +443,7 @@ uint64_t safe_read(int size, int t_end, FILE* in){
             }
         }
     }else{
-        if(endian==BIG_ENDIAN){
+        if(endian==SAFE_BIG_ENDIAN){
             for(int i=sizeof(uint64_t)-size; i<sizeof(uint64_t); i++){
                 data.bytes[i] = fgetc(in);
             }
@@ -367,3 +467,16 @@ double double_read(int t_end, FILE* in){
     return val;
 }
 
+size_t bin_fgets(char *buffer, size_t len, FILE *src){
+	size_t read = 0;
+	while(!feof(src) && read < len){
+		char ch = fgetc(src);
+		if(ch == EOF)
+			break;
+		buffer[read++] = ch;
+		if(ch == '\n' || ch == '\n')
+			break;
+	}
+	buffer[read] = 0;
+	return read;
+}

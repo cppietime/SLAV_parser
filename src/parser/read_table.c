@@ -295,12 +295,21 @@ parsam_table *parsam_table_read(FILE *file){
     return table;
 }
 
-static int utf_type = 8;
+int parsam_utf_type = 8;
 
 parsam_table *parsam_table_make(FILE *file){
-		utf_type = fget_utf_type(file);
-		if(utf_type != TYPE_UNKNOWN && utf_type != TYPE_UTF8){
+		parsam_utf_type = fget_utf_type(file);
+		int istmp = 0;
+		if(parsam_utf_type != TYPE_UNKNOWN && parsam_utf_type != TYPE_UTF8){
 			fprintf(stderr, "Error: Language specification file MUST be formatted as ASCII or UTF-8!\n");
+			// FILE *newf = tmpfile();
+			// convert_utf(newf, TYPE_UTF8, file, parsam_utf_type);
+			// fflush(newf);
+			// rewind(newf);
+			// fget_utf_type(newf);
+			// file = newf;
+			// parsam_utf_type = TYPE_UTF8;
+			// istmp = 1;
 			return NULL;
 		}
     static char line[1024], temp[1024];
@@ -378,6 +387,7 @@ parsam_table *parsam_table_make(FILE *file){
         }else{
             line[lptr++] = ch;
         }
+				
     }
     table->n_nonterm = n_nonterm;
     table->symids = malloc(sizeof(char*) * (n_term + n_nonterm));
@@ -609,7 +619,7 @@ parsam_ast* producer(){
 void strwstr(uint32_t *wstr, char *str){
   int i = 0;
   while(*str){
-		wstr[i++] = sget_unicode(str, &str, utf_type);
+		wstr[i++] = sget_unicode(str, &str, parsam_utf_type);
   }
   wstr[i] = 0;
 }
@@ -617,95 +627,12 @@ void strwstr(uint32_t *wstr, char *str){
 void strnwstr(uint32_t *wstr, char *str, size_t n){
   int i = 0;
   while(*str && i < n){
-		wstr[i++] = sget_unicode(str, &str, utf_type);
+		wstr[i++] = sget_unicode(str, &str, parsam_utf_type);
   }
   wstr[i] = 0;
 }
 
-void wstrcpy(uint32_t *dst, uint32_t *src){
-  for(uint32_t *ptr = src; *ptr; ptr++){
-    *(dst++) = *ptr;
-  }
-  *dst = 0;
-}
 
-void wstrncpy(uint32_t *dst, uint32_t *src, size_t n){
-  int i;
-  for(i=0; src[i] && i < n; i++){
-    dst[i] = src[i];
-  }
-  dst[i] = 0;
-}
-
-int wstrncmp(uint32_t *a, uint32_t *b, size_t n){
-  for(int i = 0; i < n; i++){
-    int dif = (int)(a[i]) - (int)(b[i]);
-    if(dif)
-      return dif;
-  }
-  return 0;
-}
-
-void pututf8(FILE *file, uint32_t pt){
-	if(pt < 128)
-		fputc(pt, file);
-	else if(pt < 2048){
-		fputc(0xc0 | (pt >> 6), file);
-		fputc(0x80 | (pt & 0x3f), file);
-	}
-	else if(pt < 65536){
-		fputc(0xe0 | (pt >> 12), file);
-		fputc(0x80 | ((pt >> 6) & 0x3f), file);
-		fputc(0x80 | (pt & 0x3f), file);
-	}
-	else{
-		fputc(0xf0 | (pt >> 18), file);
-		fputc(0x80 | ((pt >> 12) & 0x3f), file);
-		fputc(0x80 | ((pt >> 6) & 0x3f), file);
-		fputc(0x80 | (pt & 0x3f), file);
-	}
-}
-
-void fprintw(FILE *file, uint32_t *wstr){
-  for(uint32_t *ptr = wstr; *ptr; ptr++){
-		if(*ptr <= 127 && *ptr != '\n' && *ptr != '\r')
-			fputc(*ptr, file);
-		else if(file == stdout || file == stderr)
-			fprintf(file, "[\\x%x]", *ptr);
-		else{
-			pututf8(file, *ptr);
-		}
-  }
-}
-
-void fprintwn(FILE *file, uint32_t *wstr, size_t n){
-  for(uint32_t *ptr = wstr; *ptr && ptr < wstr + n; ptr++){
-		if(*ptr <= 127 && *ptr != '\n' && *ptr != '\r')
-			fputc(*ptr, file);
-		else if(file == stdout || file == stderr)
-			fprintf(file, "[\\x%x]", *ptr);
-		else{
-			pututf8(file, *ptr);
-		}
-  }
-}
-
-long wstrtol(uint32_t *wstr, uint32_t **end, int radix){
-  static char onechar[2] = {0, 0};
-  long ret = 0;
-  uint32_t *ptr;
-  for(ptr = wstr; *ptr; ptr++){
-		onechar[0] = *ptr;
-		if( (*ptr >= '0' && *ptr <= '9') || (*ptr >= 'A' && *ptr <= 'F') || (*ptr >= 'a' && *ptr <= 'f') ){
-			ret *= radix;
-			ret += strtol(onechar, NULL, radix);
-		}
-		else break;
-  }
-  if(end != NULL)
-    *end = ptr;
-	return ret;
-}
 
 // int main(){
 	// regam_nfa_start();

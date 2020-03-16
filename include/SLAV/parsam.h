@@ -13,6 +13,8 @@ Written by Yaakov Schectman 2019.
 
 /* An int representing the encoding type of an input */
 
+extern int parsam_utf_type;
+
 /* ================================================================================================================ */
 /* The data types for the shift-reduce parser table itself. */
 
@@ -100,12 +102,6 @@ struct _parsam_ast{
 
 void strwstr(uint32_t *wstr, char *str); /* Copy normal string to unicode string */
 void strnwstr(uint32_t *wstr, char *str, size_t n); /* Copy normal string to unicode string w/ length limit */
-void wstrcpy(uint32_t *dst, uint32_t *src); /* Copy unicode string */
-void wstrncpy(uint32_t *dst, uint32_t *src, size_t n); /* Copy unicode string */
-int wstrncmp(uint32_t *dst, uint32_t *src, size_t n); /* Copy unicode string */
-long wstrtol(uint32_t *wstr, uint32_t **end, int radix); /* Unicode string to long int */
-void fprintw(FILE *file, uint32_t *wstr); /* Prints a unicode string as normal string to file */
-void fprintwn(FILE *file, uint32_t *wstr, size_t n); /* Prints a unicode string as normal string to file with a limit */
 
 /* Recursively frees up an AST */
 void parsam_ast_delete(parsam_ast *ast);

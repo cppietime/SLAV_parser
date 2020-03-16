@@ -426,16 +426,3 @@ void big_negate(binode_t *dst, binode_t *src){
 	bicpy(dst, src);
 	dst->value->sign ^= 1;
 }
-
-int main(){
-	bigint_init(4);
-	bigint_resize(4, 3);
-	binode_t *num = bigint_link(), *fac = bigint_link(), *prod = bigint_link();
-	dtobi(num, -60);
-	bi_printhex(stdout, num);printf("\n");
-	big_asinh(fac, num);
-	bi_printhex(stdout, fac);printf("\n");
-	bi_printdec(stdout, fac, 5);
-	bigint_destroy();
-	return 0;
-}
