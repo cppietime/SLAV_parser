@@ -44,7 +44,17 @@ uservar* new_float(double flt){
 	return ret;
 }
 
+uservar* new_map(datam_hashtable *map){
+	uservar *ret = new_variable();
+	ret->type = hash_table;
+	ret->values.map_val = map;
+	return ret;
+}
+
 pushable pushable_var(uservar *var){
+	if(var == NULL){
+		quit_for_error(1, "Error: Pushing non-existent variable!\n");
+	}
 	return (pushable){.type = literal, .values = {.lit_val = var}};
 }
 
@@ -122,8 +132,6 @@ void mark_table(datam_hashtable *table){
 void clean_variable(uservar *t){
 	if(t == NULL)
 		return;
-	if((t->flags & FLAG_MARKED))
-		return;
 	switch(t->type){
 		case big_integer:
 		case big_fixed:
@@ -145,7 +153,6 @@ void clean_variable(uservar *t){
 			clean_table(t->values.map_val);
 			break;
 	}
-	// free(t);
 }
 
 void clean_list(datam_darr *list){
@@ -205,7 +212,6 @@ void garbage_collect(){
 	for(datam_hashbucket *glob = datam_hashtable_next(global_vars, NULL); glob != NULL; glob = datam_hashtable_next(global_vars, glob)){
 		var = (uservar*)(glob->value);
 		if(var != NULL){
-			uint32_t *key = glob->key;
 			mark_variable(var);
 		}
 	}
@@ -270,7 +276,7 @@ pushable clean_ref(pushable base){
 	return base;
 }
 
-uservar* clone_variable(uservar *ret, uservar *t){
+uservar* clone_variable(uservar *ret, uservar *t, int deep){
 	switch(t->type){
 		case code_point:
 		case open_file:
@@ -301,8 +307,10 @@ uservar* clone_variable(uservar *ret, uservar *t){
 			uservar *child;
 			for(size_t i = 0; i < oldlst->n; i++){
 				datam_darr_get(oldlst, &child, i);
-				uservar *copy = clone_variable(new_variable(), child);
-				datam_darr_push(newlst, copy);
+				uservar *copy = child;
+				if(deep)
+					copy = clone_variable(new_variable(), child, deep);
+				datam_darr_push(newlst, &copy);
 			}
 			ret->type = list;
 			ret->values.list_val = newlst;
@@ -322,8 +330,8 @@ uservar* clone_variable(uservar *ret, uservar *t){
 			uservar *var;
 			for(size_t i = 0; i < oldcode->bound_vars->n; i++){
 				datam_darr_get(oldcode->bound_vars, &var, i);
-				uservar *copy = clone_variable(new_variable(), var);
-				datam_darr_push(newcode->bound_vars, copy);
+				uservar *copy = clone_variable(new_variable(), var, deep);
+				datam_darr_push(newcode->bound_vars, &copy);
 			}
 			ret->type = block_code;
 			ret->values.code_val = newcode;

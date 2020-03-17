@@ -308,6 +308,20 @@ int wstrncmp(uint32_t *a, uint32_t *b, size_t n){
   return 0;
 }
 
+void wstrpad(uint32_t *dst, char *src){
+	size_t len = strlen(src);
+	for(size_t i = 0; i < len + 1; i++){
+		dst[i] = src[i];
+	}
+}
+
+void wstrpluck(char *dst, uint32_t *src){
+	size_t len = wstrlen(src);
+	for(size_t i = 0; i < len + 1; i++){
+		dst[i] = src[i];
+	}
+}
+
 void pututf8(FILE *file, uint32_t pt){
 	if(pt < 128)
 		fputc(pt, file);

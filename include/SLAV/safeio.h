@@ -28,6 +28,8 @@ void wstrcpy(uint32_t *dst, uint32_t *src); /* Copy unicode string */
 void wstrncpy(uint32_t *dst, uint32_t *src, size_t n); /* Copy unicode string */
 int wstrncmp(uint32_t *dst, uint32_t *src, size_t n); /* Copy unicode string */
 long wstrtol(uint32_t *wstr, uint32_t **end, int radix); /* Unicode string to long int */
+void wstrpad(uint32_t *dst, char *src); /* Char to uni and back */
+void wstrpluck(char *dst, uint32_t *src);
 void fprintw(FILE *file, uint32_t *wstr); /* Prints a unicode string as normal string to file */
 void fprintwn(FILE *file, uint32_t *wstr, size_t n); /* Prints a unicode string as normal string to file with a limit */
 size_t wstrlen(uint32_t *wstr); /* Length of wide string */

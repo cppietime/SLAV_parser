@@ -10,6 +10,8 @@
 
 #define SIZE_MUL 15
 
+static binode_t *dec_part = NULL;
+
 size_t bigint_size = 1;
 size_t bigfix_point = 0;
 binode_t* bigint_head = NULL;
@@ -101,6 +103,8 @@ void bigint_init(size_t size){
         node = node->next;
     }
     bigint_size = digs;
+		if(dec_part == NULL)
+			dec_part = bigint_link();
     setup_consts();
 }
 
@@ -459,9 +463,9 @@ void strtobi_dec(binode_t *dst, char *src, char **eptr){
 			int sign = dst->value->sign;
 			memcpy(scrap, dst->value->digits + bigfix_point, (bigint_size - bigfix_point) * 4);
 			double lval = strtod(ptr, &ptr);
-			dtobi(dst, lval);
-			dst->value->sign = sign;
-			memcpy(dst->value->digits + bigfix_point, scrap, (bigint_size - bigfix_point) * 4);
+			dtobi(dec_part, lval);
+			dec_part->value->sign = sign;
+			biadd(dst, dst, dec_part);
 		}
 	}
 	if(eptr != NULL)
@@ -844,7 +848,7 @@ void idivmod(binode_t* quo, binode_t* mod, binode_t* num, binode_t* den){
 		fprintf(stderr, "Warning! Dividng mismatching type!\n");
 	}
   int sign = num->value->sign != den->value->sign;
-  digit_t *qsrc = NULL, *msrc = NULL;
+  digit_t *qsrc = NULL, *msrc = scrap + bigint_size * 4;
   if(quo != NULL)
     qsrc = quo->value->digits;
   if(mod != NULL)
@@ -852,17 +856,22 @@ void idivmod(binode_t* quo, binode_t* mod, binode_t* num, binode_t* den){
   arrdivmod(qsrc, msrc, num->value->digits, den->value->digits, bigint_size, scrap);
   if(quo != NULL){
     quo->value->sign = sign;
+		if(sign && hibit(msrc, bigint_size) > 0){
+			digit_t one = 1;
+			arradd(quo->value->digits, quo->value->digits, bigint_size, &one, 1);
+		}
   }
   if(mod != NULL){
 		mod->type = num->type;
     if(sign){
       mod->value->sign = 0;
       if(hibit(mod->value->digits, bigint_size)){
-        bisub(mod, den, mod);
-        if(quo != NULL){
-          digit_t one = 1;
-          arradd(quo->value->digits, quo->value->digits, bigint_size, &one, 1);
-        }
+				if(den->value->sign){
+					biadd(mod, den, mod);
+				}
+				else{
+					bisub(mod, den, mod);
+				}
       }
     }
     mod->value->sign = den->value->sign;

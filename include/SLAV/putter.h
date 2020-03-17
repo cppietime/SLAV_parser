@@ -7,6 +7,7 @@ Oh boy this should be fun. I'm about to write a deadass interpreter for a code g
 
 #include <stdio.h>
 #include <stdint.h>
+#include <stdarg.h>
 #include "datam.h"
 #include "bigint.h"
 #include "slav.h"
@@ -145,6 +146,9 @@ void putter_cleanup();
 /* Run the garbage collection */
 void garbage_collect();
 
+/* Print an error and leave */
+void quit_for_error(int code, const char *errmsg, ...);
+
 /* ============================================================= Garbage collection functions =========================================================== */
 
 /* Reset the mark on all heap objects */
@@ -177,7 +181,7 @@ uservar* new_float(double flt);
 pushable clean_ref(pushable base);
 
 /* Cloning functions */
-uservar* clone_variable(uservar *base, uservar *t);
+uservar* clone_variable(uservar *base, uservar *t, int deep);
 
 /* Pushable from var */
 pushable pushable_var(uservar *var);
@@ -185,6 +189,11 @@ pushable pushable_var(uservar *var);
 /* Wstring funcs */
 int wstr_cmp(void *a, void *b);
 int32_t wstr_ind(void *data, size_t n);
+
+/* Obj funcs */
+var_type common_math_type(var_type left, var_type right);
+int32_t uservar_cmp(void *left, void *right);
+int32_t uservar_hsh(void *vvar, size_t n);
 
 /* ============================================================== Parsing functions ==================================================================== */
 
@@ -219,5 +228,8 @@ void discard_popped(pushable pop);
 
 /* Pop a variable respecting mode and discard memory */
 uservar* pop_var();
+
+/* Get a list of variables in right-left order */
+void pop_n_vars(int allow_empty, size_t n, ...);
 
 #endif

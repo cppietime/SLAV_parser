@@ -31,16 +31,40 @@ void putback_char(uint32_t cp){
 }
 
 static uint32_t ops_list[] = {
-	'\'',
-	'+',
-	']',
-	'.',
-	'*',
-	':',
-	'$',
-	'@',
-	'(',
-	')',
+	/* Math */
+	'+', /* Addition */
+	'-', /* Subtraction */
+	'*', /* Multiplication */
+	'/', /* Division */
+	'%', /* Modulus */
+	'.', /* Append */
+	'!', /* Not */
+	'~', /* Absolute value */
+	'>', /* Greater than */
+	'<', /* Less than */
+	'=', /* Equality */
+	'|', /* Bitwise OR */
+	'&', /* Bitwise AND */
+	'^', /* Bitwise XOR */
+	/* Data */
+	']', /* Singleton list */
+	':', /* Assign */
+	'$', /* Duplicate reference */
+	'@', /* Index */
+	'(', /* Resolve */
+	',', /* Swap top with n-th */
+	'\\', /* Match type */
+	'`', /* Pop and discard */
+	'&', /* Bitwise AND */
+	'|', /* Bitwise OR */
+	'^', /* Bitwise XOR */
+	/* IO */
+	'\'', /* Print */
+	'_', /* Input */
+	/* Control */
+	')', /* Execute */
+	'?', /* Conditional execute */
+	';', /* While loop */
 	0
 };
 
@@ -69,7 +93,7 @@ pushable parse_sym(FILE *src){
 				if(cp == '\\')
 					cp = next_char(src);
 				else if(cp == (uint32_t)EOF){
-					fprintf(stderr, "Error: Encountered EOF mid-comment!\n");
+					fprintf(stderr, "Warning: Encountered EOF mid-comment!\n");
 					return (pushable){.type = nothing};
 				}
 				cp = next_char(src);
@@ -101,7 +125,7 @@ pushable parse_sym(FILE *src){
 		cp = next_char(src);
 		while(cp != '"'){
 			if(cp == (uint32_t)EOF){
-				fprintf(stderr, "Error: Encountered EOF mid-string!\n");
+				fprintf(stderr, "Warning: Encountered EOF mid-string!\n");
 				return (pushable){.type = nothing};
 			}
 			uint32_t app = cp;

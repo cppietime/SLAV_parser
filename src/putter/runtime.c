@@ -5,6 +5,7 @@ The running environment
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdarg.h>
 #include "putter.h"
 #include "bigint.h"
 #include "slavio.h"
@@ -163,7 +164,81 @@ void execute_block(code_block *block){
 	shadow_stack->n = old_pos;
 }
 
+pushable pop_pushable(){
+	if(stack->n == 0){
+		quit_for_error(4, "Error: Stack is empty!\n");
+	}
+	pushable popped;
+	size_t i = stack->n - 1;
+	datam_darr_get(stack, &popped, i);
+	if(!(mode_flags & CLONE_MODE))
+		stack->n--;
+	if(mode_flags & VOLATILE_MODE)
+		mode_flags ^= CLONE_MODE;
+	return popped;
+}
+
+uservar* resolve_var(pushable tok){
+	static char plain[1024];
+	if(tok.type == literal)
+		return tok.values.lit_val;
+	uint32_t *name = tok.values.name_val;
+	uservar *var = NULL;
+	if(local_vars != NULL){
+		var = (uservar*)(datam_hashtable_get(local_vars, name));
+		if(var != NULL){
+			return var;
+		}
+	}
+	var = (uservar*)(datam_hashtable_get(global_vars, name));
+	if(var != NULL){
+		return var;
+	}
+	size_t len = wstrlen(name);
+	for(size_t i = 0; i <= len; i++)
+		plain[i] = name[i];
+	free(name);
+	quit_for_error(5, "Error: Cannot resolve variable name: %s\n", plain);
+}
+
+void discard_popped(pushable pop){
+	if(pop.type == varname)
+		free(pop.values.name_val);
+}
+
+uservar* pop_var(){
+	pushable pop = pop_pushable();
+	uservar *var = resolve_var(pop);
+	discard_popped(pop);
+	return var;
+}
+
+void pop_n_vars(int allow_empty, size_t n, ...){
+	va_list args;
+	va_start(args, n);
+	for(size_t i = 0; i < n; i++){
+		uservar *var = pop_var();
+		if(var->type == empty && !allow_empty)
+			quit_for_error(6, "Popped empty variable\n");
+		uservar **target = va_arg(args, uservar**);
+		*target = var;
+	}
+}
+
+static FILE *open_src = NULL;
+
+void quit_for_error(int code, const char *errmsg, ...){
+	va_list args;
+	va_start(args, errmsg);
+	vfprintf(stderr, errmsg, args);
+	putter_cleanup();
+	if(open_src != NULL)
+		fclose(open_src);
+	exit(code);
+}
+
 void run_file(FILE *src){
+	open_src = src;
 	srcfile_type = fget_utf_type(src);
 	putter_init();
 	code_block *code = parse_block(src);
@@ -178,52 +253,7 @@ void run_file(FILE *src){
 	execute_block(code);
 	
 	putter_cleanup();
-}
-
-pushable pop_pushable(){
-	if(stack->n == 0){
-		fprintf(stderr, "Error: Stack is empty!\n");
-		return (pushable){0, 0};
-	}
-	pushable popped;
-	size_t i = stack->n - 1;
-	datam_darr_get(stack, &popped, i);
-	if(!(mode_flags & CLONE_MODE))
-		stack->n--;
-	if(mode_flags & VOLATILE_MODE)
-		mode_flags ^= CLONE_MODE;
-	return popped;
-}
-
-uservar* resolve_var(pushable tok){
-	if(tok.type == literal)
-		return tok.values.lit_val;
-	uint32_t *name = tok.values.name_val;
-	uservar *var = NULL;
-	if(local_vars != NULL){
-		var = (uservar*)(datam_hashtable_get(local_vars, name));
-		if(var != NULL)
-			return var;
-	}
-	var = (uservar*)(datam_hashtable_get(global_vars, name));
-	if(var != NULL)
-		return var;
-	fprintf(stderr, "Error: Cannot resolve variable name: ");
-	fprintw(stderr, name);
-	fprintf(stderr, "\n");
-	return NULL;
-}
-
-void discard_popped(pushable pop){
-	if(pop.type == varname)
-		free(pop.values.name_val);
-}
-
-uservar* pop_var(){
-	pushable pop = pop_pushable();
-	uservar *var = resolve_var(pop);
-	discard_popped(pop);
-	return var;
+	open_src = NULL;
 }
 
 int main(){
