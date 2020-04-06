@@ -6,6 +6,7 @@ Memory management I guess
 #include <stdlib.h>
 #include <string.h>
 #include "putter.h"
+#include "putops.h"
 #include "slavio.h"
 
 uservar* new_variable(){
@@ -164,8 +165,14 @@ void clean_list(datam_darr *list){
 void clean_file(file_wrapper *wrap){
 	if(wrap == NULL)
 		return;
+	if(wrap->file == def_out)
+		def_out = stdout;
+	if(wrap->file == def_in)
+		def_in = stdin;
 	if(wrap->status & STATUS_OPEN)
 		fclose(wrap->file);
+	if(wrap->path != NULL)
+		free(wrap->path);
 	free(wrap);
 }
 
@@ -206,6 +213,12 @@ void garbage_collect(){
 			var = pushed.values.lit_val;
 			mark_variable(var);
 		}
+	}
+	/* Shadow stack */
+	n = shadow_stack->n;
+	for(int i = 0; i < n; i++){
+		datam_darr_get(shadow_stack, &var, i);
+		mark_variable(var);
 	}
 	
 	/* Global vars */
@@ -279,11 +292,22 @@ pushable clean_ref(pushable base){
 uservar* clone_variable(uservar *ret, uservar *t, int deep){
 	switch(t->type){
 		case code_point:
-		case open_file:
 		case empty:
 		case native_float:
 			memcpy(ret, t, sizeof(uservar));
 			break;
+		case open_file:{
+			file_wrapper *tf = t->values.file_val;
+			char *npath = malloc(strlen(tf->path) + 1);
+			strcpy(npath, tf->path);
+			file_wrapper *fw = new_file(npath);
+			fw->encoding = tf->encoding;
+			fw->status = tf->status;
+			fw->status &= ~STATUS_OPEN;
+			ret->type = open_file;
+			ret->values.file_val = fw;
+			break;
+		}
 		case big_integer:
 		case big_fixed:{
 			binode_t *base = t->values.big_val;

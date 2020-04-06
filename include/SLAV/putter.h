@@ -8,6 +8,7 @@ Oh boy this should be fun. I'm about to write a deadass interpreter for a code g
 #include <stdio.h>
 #include <stdint.h>
 #include <stdarg.h>
+#include <sys/stat.h>
 #include "datam.h"
 #include "bigint.h"
 #include "slav.h"
@@ -38,13 +39,23 @@ typedef struct _pushable{
 } pushable;
 
 #define STATUS_OPEN 1
+#define STATUS_READ 2
+#define STATUS_WRITE 4
+#define STATUS_APPEND 8
+#define STATUS_DIR 16
+#define STATUS_EXISTS 32
+#define STATUS_EOF 64
 
 /* Wrapped file */
 typedef struct _file_wrapper{
 	FILE *file; /* Contained file */
-	int status; /* Status bits */
+	char *path; /* File path */
+	struct stat fstat; /* File stats */
+	uint32_t status; /* Status bits */
+	uint32_t putback; /* Put-back char */
 	int bitptr; /* Ptr to bit writing/reading */
 	int bitbuf; /* Buffer for bit writing/reading */
+	int encoding; /* Unicode encoding */
 } file_wrapper;
 
 /* Chunk of executable code */
@@ -176,6 +187,7 @@ uservar* new_bignum(binode_t *num, var_type type);
 uservar* new_seq(datam_darr *seq, var_type type);
 uservar* new_cp(int32_t cp);
 uservar* new_float(double flt);
+uservar* new_map(datam_hashtable *map);
 
 /* Clone name if needed */
 pushable clean_ref(pushable base);

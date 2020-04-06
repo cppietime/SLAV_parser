@@ -58,6 +58,8 @@ int32_t userlist_cmp(datam_darr *llst, datam_darr *rlst){
 }
 
 int32_t uservar_cmp_sub(uservar *left, uservar *right){
+	if(left->type == empty && right->type == empty)
+		return 0;
 	var_type com = common_math_type(left->type, right->type);
 	switch(com){
 		case wstring:
@@ -106,6 +108,37 @@ int32_t uservar_cmp_sub(uservar *left, uservar *right){
 				return (int32_t)(lcod->members->n) - (int32_t)(rcod->members->n);
 			}
 		}
+		case hash_table:{
+			datam_hashtable *lmap = put_tomap(left), *rmap = put_tomap(right);
+			int32_t ret = 0;
+			if(lmap->n != rmap->n)
+				ret = (int32_t)(lmap->n) - (int32_t)(rmap->n);
+			else{
+				for(datam_hashbucket *buck = datam_hashtable_next(lmap, NULL); buck != NULL; buck = datam_hashtable_next(lmap, buck)){
+					uservar *key = (uservar*)(buck->key);
+					if(!(key->flags & FLAG_KEY))
+						continue;
+					uservar *value = (uservar*)(buck->value);
+					uservar *match = (uservar*)(datam_hashtable_get(rmap, key));
+					if(match == NULL){
+						ret = 1;
+						break;
+					}
+					if((value->flags & FLAG_KEY) || (match->flags & FLAG_KEY)){
+						int32_t cdif = uservar_cmp(value, match);
+						if(cdif != 0){
+							ret = cdif;
+							break;
+						}
+					}
+				}
+			}
+			datam_hashtable_delete(lmap);
+			datam_hashtable_delete(rmap);
+			return ret;
+		}
+		case empty:
+			return 1;
 	}
 	return 0;
 }
@@ -141,19 +174,32 @@ int32_t uservar_hsh_sub(uservar *var, size_t n){
 		case list:{
 			datam_darr *lst = var->values.list_val;
 			uservar *child;
-			for(size_t i = 0; i < lst->n;){
+			for(int i = -1; i < lst->n - 1;){
 				do{
-					datam_darr_get(lst, &child, i++);
+					datam_darr_get(lst, &child, ++i);
 				}while(!(child->flags & FLAG_HASH) && i < lst->n);
 				if(i < lst->n)
 					hash += uservar_hsh_sub(child, n);
-				for(size_t j = 0; j < n + 1 && i < lst->n; j++){
+				for(size_t j = 0; j < n + 1 && i < lst->n - 1; j++){
 					do{
-						datam_darr_get(lst, &child, i++);
+						datam_darr_get(lst, &child, ++i);
 					}while(!(child->flags & FLAG_HASH) && i < lst->n);
 				}
 			}
 			return hash;
+		}
+		case hash_table:{
+			int32_t hsh = 0;
+			datam_hashtable *map = var->values.map_val;
+			for(datam_hashbucket *buck = datam_hashtable_next(map, NULL); buck != NULL; buck = datam_hashtable_next(map, buck)){
+				uservar *key = buck->key;
+				uservar *value = buck->value;
+				if(key->flags & FLAG_HASH)
+					hsh += uservar_hsh(key, n);
+				if(value != NULL && (value->flags & FLAG_HASH))
+					hsh += uservar_hsh(value, n);
+			}
+			return hsh;
 		}
 		case block_code:{
 			datam_darr *mems = var->values.code_val->members;

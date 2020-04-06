@@ -11,7 +11,7 @@ See datatypes/datam.h for detailed comments and function signatures for the data
 `datam_unihash` is a universal hash function parameter holding struct.  
 `datam_hashtable` is an open-addressed hash table.  
 
-Run `make datatypes_shared` or `datatypes_static` to compile libdatam.a. Link this library and include datam.h to use the introducted datatypes.  
+Run `make libs/datam.so` or `libs/libdatam.a` to compile libdatam.a. Link this library and include datam.h to use the introducted datatypes.  
 
 ## Parser functionality  
 
@@ -26,8 +26,6 @@ Call `regam_nfa_start()` before using any parsing functions to set up the necess
 `parsam_ast_print(parsam_ast *ast, parsam_table *table, FILE *file)` prints the tree representation of ast to file. Use slav_lang.table for table.  
 `parsam_table_print(parsam_table *table, FILE *file)` prints the representation of table to file.  
 `regam_regex_print(regam_regex *regex)` prints regex to stdout.  
-
-Run `make slav_shared` or `slav_static` to compile libslav.a. Link this file and include slav.h.
 
 The human-readable language specification is as follows:  
 

@@ -77,7 +77,7 @@ void execute_builtin(uint32_t op){
 		case '@':
 			get_n();
 			break;
-		case '(':
+		case ';':
 			resolve();
 			break;
 		case ',':
@@ -100,7 +100,7 @@ void execute_builtin(uint32_t op){
 		case '?':
 			execute_2nd_if_top();
 			break;
-		case ';':
+		case '(':
 			execute_while();
 	}
 	if(heap->length >= gc_target){

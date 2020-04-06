@@ -63,21 +63,85 @@ void dup_top(size_t num){
 }
 
 void popped_get_n(uservar *left, uservar *right){
-	int id = (int)put_tofloat(right);
-	if(left->type == list){
-		uservar *var;
-		datam_darr_get(left->values.list_val, &var, id);
-		push_sym(pushable_var(var));
+	if(left->type == hash_table){
+		uservar *val = (uservar*)(datam_hashtable_get(left->values.map_val, right));
+		if(val == NULL){
+			push_sym(pushable_var(new_variable()));
+		}
+		else{
+			push_sym(pushable_var(val));
+		}
 	}
 	else if(left->type == wstring){
-		int32_t ch;
-		datam_darr_get(left->values.list_val, &ch, id);
-		uservar *var = new_cp(ch);
-		push_sym(pushable_var(var));
+		datam_darr *lstr = left->values.list_val;
+		switch(right->type){
+			case big_integer:
+			case big_fixed:
+			case native_float:{
+				int index = (int)put_tofloat(right);
+				if(index < 0)
+					index += lstr->n - 1;
+				if(index < 0 || index >= lstr->n - 1)
+					quit_for_error(10, "Error: Index %lu out of range %lu\n", index, lstr->n - 1);
+				int32_t ch;
+				datam_darr_get(lstr, &ch, index);
+				uservar *var = new_cp(ch);
+				push_sym(pushable_var(var));
+				break;
+			}
+			case code_point:{
+				int32_t ch, sch = right->values.uni_val;
+				size_t i;
+				for(i = 0; i < lstr->n - 1; i++){
+					datam_darr_get(lstr, &ch, i);
+					if(ch == sch)
+						break;
+				}
+				uservar *var;
+				if(i == lstr->n - 1)
+					var = new_variable();
+				else{
+					binode_t *ind = bigint_link();
+					ltobi(ind, i);
+					var = new_bignum(ind, big_integer);
+				}
+				push_sym(pushable_var(var));
+				break;
+			}
+			case wstring:{
+				datam_darr *rstr = right->values.list_val;
+				uint32_t *wl = lstr->data, *wr = rstr->data;
+				uint32_t *pos = wstrpos(wl, wr);
+				uservar *var;
+				if(pos == NULL)
+					var = new_variable();
+				else{
+					binode_t *ind = bigint_link();
+					ltobi(ind, pos - wl);
+					var = new_bignum(ind, big_integer);
+				}
+				push_sym(pushable_var(var));
+				break;
+			}
+			default:
+				quit_for_error(4, "Error: Invalid indexing operands\n");
+		}
 	}
 	else{
-		fprintf(stderr, "Error: Cannot index non-sequence\n");
-		push_sym((pushable){.type = nothing});
+		int id = (int)put_tofloat(right);
+		if(left->type == list){
+			uservar *var;
+			datam_darr_get(left->values.list_val, &var, id);
+			push_sym(pushable_var(var));
+		}
+		else if(left->type == open_file){
+			datam_darr *wstr = read_from_file(left->values.file_val, id);
+			uservar *var = new_seq(wstr, wstring);
+			push_sym(pushable_var(var));
+		}
+		else{
+			quit_for_error(4, "Error: Invalid indexing operands\n");
+		}
 	}
 }
 
@@ -96,32 +160,53 @@ void resolve(){
 void execute_top(){
 	uservar *var;
 	pop_n_vars(0, 1, &var);
-	if(var->type != block_code)
+	if(var->type == block_code){
+		if(local_vars != NULL){
+			datam_deque_queueh(var_frames, local_vars);
+		}
+		local_vars = datam_hashtable_new(wstr_ind, wstr_cmp, 8);
+		uservar *tmp = clone_variable(new_variable(), var, 0);
+		static char lockey[] = "@@current";
+		size_t len = strlen(lockey);
+		uint32_t *key = malloc(4 * (len + 1));
+		wstrpad(key, lockey);
+		datam_hashtable_put(local_vars, key, tmp);
+		code_block *code = tmp->values.code_val;
+		execute_block(code);
+		for(datam_hashbucket *pair = datam_hashtable_next(local_vars, NULL); pair != NULL; pair = datam_hashtable_next(local_vars, pair)){
+			uint32_t *key = (uint32_t*)(pair->key);
+			if(key != NULL)
+				free(key);
+		}
+		datam_hashtable_delete(local_vars);
+		local_vars = NULL;
+		if(var_frames->length){
+			datam_duonode *node = datam_deque_dequeueh(var_frames);
+			local_vars = (datam_hashtable*)(node->data);
+			free(node);
+		}
+	}
+	else if(var->type == wstring){
+		FILE *buf = tmpfile();
+		datam_darr *wstr = var->values.list_val;
+		uint32_t ch;
+		for(size_t i = 0; i < wstr->n; i++){
+			datam_darr_get(wstr, &ch, i);
+			fput_unicode(buf, TYPE_UTF8, ch);
+		}
+		fflush(buf);
+		rewind(buf);
+		int old = srcfile_type;
+		srcfile_type = TYPE_UTF8;
+		code_block *code = parse_block(buf);
+		fclose(buf);
+		uservar *block = new_variable();
+		block->type = block_code;
+		block->values.code_val = code;
+		push_sym(pushable_var(block));
+	}
+	else
 		quit_for_error(5, "Error: Executing non-code\n");
-	if(local_vars != NULL){
-		datam_deque_queueh(var_frames, local_vars);
-	}
-	local_vars = datam_hashtable_new(wstr_ind, wstr_cmp, 8);
-	uservar *tmp = clone_variable(new_variable(), var, 0);
-	static char lockey[] = "@@current";
-	size_t len = strlen(lockey);
-	uint32_t *key = malloc(4 * (len + 1));
-	wstrpad(key, lockey);
-	datam_hashtable_put(local_vars, key, tmp);
-	code_block *code = tmp->values.code_val;
-	execute_block(code);
-	for(datam_hashbucket *pair = datam_hashtable_next(local_vars, NULL); pair != NULL; pair = datam_hashtable_next(local_vars, pair)){
-		uint32_t *key = (uint32_t*)(pair->key);
-		if(key != NULL)
-			free(key);
-	}
-	datam_hashtable_delete(local_vars);
-	local_vars = NULL;
-	if(var_frames->length){
-		datam_duonode *node = datam_deque_dequeueh(var_frames);
-		local_vars = (datam_hashtable*)(node->data);
-		free(node);
-	}
 }
 
 void execute_2nd_if_top(){

@@ -12,28 +12,125 @@ IO functions
 #include "putter.h"
 #include "putops.h"
 
-var_type common_math_type(var_type type1, var_type type2){
+var_type common_subcall(var_type type1, var_type type2){
+	switch(type1){
+		case hash_table: switch(type2){
+			case list:
+				return hash_table;
+			default:
+				return empty;
+		}
+		case big_fixed: switch(type2){
+			case big_integer:
+			case native_float:
+			case code_point:
+				return big_fixed;
+			default:
+				return empty;
+		}
+		case big_integer: switch(type2){
+			case native_float:
+				return big_fixed;
+			case code_point:
+				return big_integer;
+			default:
+				return empty;
+		}
+		case native_float: switch(type2){
+			case native_float:
+			case code_point:
+				return native_float;
+			default:
+				return empty;
+		}
+		default: return empty;
+	}
+}
+
+var_type common_math_type_old(var_type type1, var_type type2){
 	if(type1 == type2)
 		return type1;
-	if(type1 == big_fixed || type2 == big_fixed)
+	if(type1 == hash_table && type2 == list)
+		return hash_table;
+	if(type2 == hash_table && type1 == list)
+		return hash_table;
+	if(type1 == big_fixed && (type2 == big_integer || type2 == native_float || type2 == code_point || type2 == wstring))
+		return big_fixed;
+	if(type2 == big_fixed && (type1 == big_integer || type1 == native_float || type1 == code_point || type1 == wstring))
 		return big_fixed;
 	if(type1 == big_integer && type2 == native_float)
 		return big_fixed;
 	if(type2 == big_integer && type1 == native_float)
 		return big_fixed;
-	if(type1 == big_integer || type2 == big_integer)
+	if(type1 == big_integer && (type2 == big_integer || type2 == code_point || type2 == wstring))
 		return big_integer;
-	if(type1 == native_float || type2 == native_float)
+	if(type2 == big_integer && (type1 == big_integer || type1 == code_point || type1 == wstring))
+		return big_integer;
+	if(type1 == native_float && (type2 == native_float || type2 == code_point || type2 == wstring))
+		return native_float;
+	if(type2 == native_float && (type1 == native_float || type1 == code_point || type1 == wstring))
 		return native_float;
 	if(type1 == code_point && type2 == code_point)
 		return code_point;
 	return empty;
 }
 
+var_type common_math_type(var_type type1, var_type type2){
+	if(type1 == type2)
+		return type1;
+	var_type c = common_subcall(type1, type2);
+	if(c != empty)
+		return c;
+	c = common_subcall(type2, type1);
+	return c;
+}
+
 /* Appends strings and adds code points to create a string */
 void popped_plus_basic(uservar *left, uservar *right){
 	var_type com = common_math_type(left->type, right->type);
-	if(left->type == wstring || right->type == wstring){
+	if(right->type == empty){
+		uservar *var = clone_variable(new_variable(), left, 1);
+		push_sym(pushable_var(var));
+	}
+	else if(left->type == open_file){
+		switch(right->type){
+			case code_point:{
+				char *app = malloc(2);
+				app[0] = (char)(right->values.uni_val);
+				app[1] = 0;
+				file_wrapper *join = file_appended(left->values.file_val, app);
+				free(app);
+				uservar *var = new_variable();
+				var->type = open_file;
+				var->values.file_val = join;
+				push_sym(pushable_var(var));
+				break;
+			}
+			case wstring:{
+				datam_darr *wstr = right->values.list_val;
+				size_t len = wstr->n;
+				char *app = malloc(len + 1);
+				wstrpluck(app, wstr->data);
+				file_wrapper *join = file_appended(left->values.file_val, app);
+				free(app);
+				uservar *var = new_variable();
+				var->type = open_file;
+				var->values.file_val = join;
+				push_sym(pushable_var(var));
+				break;
+			}
+			case big_integer:
+			case big_fixed:
+			case native_float:{
+				long seek = (long)put_tofloat(right);
+				fw_seek(left->values.file_val, seek, SEEK_SET);
+				break;
+			}
+			default:
+				quit_for_error(5, "Error: Adding invalid type to file\n");
+		}
+	}
+	else if(left->type == wstring || right->type == wstring){
 		datam_darr *lstr = put_tostring(left), *rstr = put_tostring(right);
 		lstr->n--;
 		datam_darr_pushall(lstr, rstr);
@@ -72,6 +169,14 @@ void popped_plus_basic(uservar *left, uservar *right){
 			int32_t cp = left->values.uni_val + right->values.uni_val;
 			uservar *sum = new_cp(cp);
 			push_sym(pushable_var(sum));
+			break;
+		}
+		case hash_table:{
+			datam_hashtable *lmap = put_tomap(left), *rmap = put_tomap(right);
+			datam_hashtable_addall(lmap, rmap);
+			datam_hashtable_delete(rmap);
+			uservar *var = new_map(lmap);
+			push_sym(pushable_var(var));
 			break;
 		}
 		default:{
@@ -128,15 +233,18 @@ void popped_plus_basic(uservar *left, uservar *right){
 
 void plus_basic(){
 	uservar *right, *left;
-	pop_n_vars(0, 2, &right, &left);
+	pop_n_vars(1, 2, &right, &left);
 	popped_plus_basic(left, right);
 }
 
 void popped_append(uservar *left, uservar *right){
-	if(left->type == list){
+	if(left->type == open_file){
+		write_to_file(left->values.file_val, right);
+	}
+	else if(left->type == list){
 		datam_darr *lst = left->values.list_val;
 		datam_darr_push(lst, &right);
-		push_sym(pushable_var(left));
+		// push_sym(pushable_var(left));
 	}
 	else if(left->type == wstring){
 		datam_darr *lstr = left->values.list_val;
@@ -144,7 +252,7 @@ void popped_append(uservar *left, uservar *right){
 		datam_darr *rstr = put_tostring(right);
 		datam_darr_pushall(lstr, rstr);
 		datam_darr_delete(rstr);
-		push_sym(pushable_var(left));
+		// push_sym(pushable_var(left));
 	}
 	else if(left->type == block_code && right->type == block_code){
 		code_block *lcode = left->values.code_val, *rcode = right->values.code_val;
@@ -159,7 +267,7 @@ void popped_append(uservar *left, uservar *right){
 			datam_darr_get(rcode->bound_vars, &bound, i - 1);
 			datam_darr_insert(lcode->bound_vars, &bound, 0);
 		}
-		push_sym(pushable_var(left));
+		// push_sym(pushable_var(left));
 	}
 	else if(left->type == code_point){
 		datam_darr *wstr = datam_darr_new(4);
@@ -170,6 +278,12 @@ void popped_append(uservar *left, uservar *right){
 		datam_darr_delete(rstr);
 		uservar *var = new_seq(wstr, wstring);
 		push_sym(pushable_var(var));
+	}
+	else if(left->type == hash_table){
+		datam_hashtable *map = left->values.map_val;
+		if(datam_hashtable_get(map, right) == NULL)
+			datam_hashtable_put(map, right, new_variable());
+		// push_sym(pushable_var(left));
 	}
 	else{
 		popped_plus_basic(left, right);
@@ -184,7 +298,28 @@ void put_append(){
 
 void popped_minus_basic(uservar *left, uservar *right){
 	var_type com = common_math_type(left->type, right->type);
-	if(left->type == wstring){
+	if(left->type == hash_table){
+		datam_hashtable *map = put_tomap(left);
+		datam_hashtable_remove(map, right);
+		uservar *var = new_map(map);
+		push_sym(pushable_var(var));
+	}
+	else if(left->type == open_file){
+		switch(right->type){
+			case big_integer:
+			case big_fixed:
+			case native_float:
+			case code_point:
+			case wstring:{
+				long skip = -(long)(put_tofloat(right));
+				fw_seek(left->values.file_val, skip, SEEK_END);
+				break;
+			}
+			default:
+				quit_for_error(5, "Error: Subtract invalid type from file\n");
+		}
+	}
+	else if(left->type == wstring){
 		datam_darr *nstr = datam_darr_new(4);
 		datam_darr *lstr = left->values.list_val;
 		int knock = (int)put_tofloat(right);
@@ -285,6 +420,17 @@ void popped_minus_basic(uservar *left, uservar *right){
 			push_sym(pushable_var(dif));
 			break;
 		}
+		case hash_table:{
+			datam_hashtable *lmap = put_tomap(left), *rmap = put_tomap(right);
+			for(datam_hashbucket *buck = datam_hashtable_next(rmap, NULL); buck != NULL; buck = datam_hashtable_next(rmap, buck)){
+				uservar *key = (uservar*)(buck->key);
+				datam_hashtable_remove(lmap, key);
+			}
+			datam_hashtable_delete(rmap);
+			uservar *dif = new_map(lmap);
+			push_sym(pushable_var(dif));
+			break;
+		}
 		default:{
 			quit_for_error(3, "Error: Invalid subtraction types\n");
 		}
@@ -299,6 +445,22 @@ void minus_basic(){
 
 void popped_times_basic(uservar *left, uservar *right){
 	switch(left->type){
+		case open_file:{
+			switch(right->type){
+				case big_integer:
+				case big_fixed:
+				case native_float:
+				case code_point:
+				case wstring:{
+					long pos = (long)(put_tofloat(right));
+					fw_seek(left->values.file_val, pos, SEEK_CUR);
+					break;
+				}
+				default:
+					quit_for_error(5, "Error: Multiplying invalid type by file\n");
+			}
+			break;
+		}
 		case list:{
 			switch(right->type){
 				case list:{
@@ -449,6 +611,14 @@ void popped_times_basic(uservar *left, uservar *right){
 			}
 			break;
 		}
+		case hash_table:{
+			datam_hashtable *map = left->values.map_val;
+			uservar *val = datam_hashtable_get(map, right);
+			int32_t truth = (val == NULL) ? 0 : 1;
+			uservar *var = new_cp(truth);
+			push_sym(pushable_var(var));
+			break;
+		}
 		default:{
 			var_type com = common_math_type(left->type, right->type);
 			if(right->type == wstring || right->type == code_point || right->type == list || right->type == block_code){
@@ -495,7 +665,19 @@ void times_basic(){
 
 void popped_div_basic(uservar *left, uservar *right){
 	var_type com = common_math_type(left->type, right->type);
-	switch(com){
+	if(left->type == list){
+		datam_hashtable *map = put_tomap(left);
+		uservar *var = new_map(map);
+		push_sym(pushable_var(var));
+	}
+	else if(left->type == open_file){
+		int t = truth_val(right);
+		if(t)
+			open_filevar(left->values.file_val);
+		else
+			close_filevar(left->values.file_val);
+	}
+	else switch(com){
 		case big_fixed:{
 			put_tobigfix(op1, left);
 			put_tobigfix(op2, right);
@@ -566,6 +748,12 @@ void popped_mod_basic(uservar *left, uservar *right){
 			datam_darr_push(nstr, &chr);
 		}
 		uservar *var = new_seq(nstr, list);
+		push_sym(pushable_var(var));
+	}
+	else if(left->type == open_file){
+		uint32_t cp = (uint32_t)(put_tofloat(right));
+		datam_darr *wstr = read_until(left->values.file_val, cp);
+		uservar *var = new_seq(wstr, wstring);
 		push_sym(pushable_var(var));
 	}
 	else switch(com){
@@ -662,6 +850,28 @@ void popped_abs_basic(uservar *var){
 			ret = new_bignum(d, big_integer);
 			break;
 		}
+		case hash_table:{
+			size_t n = var->values.map_val->n;
+			binode_t *d = bigint_link();
+			ltobi(d, n);
+			ret = new_bignum(d, big_integer);
+			break;
+		}
+		case open_file:{
+			file_wrapper *fw = var->values.file_val;
+			binode_t *num = bigint_link();
+			if(fw->status & STATUS_OPEN){
+				long pos = ftell(fw->file);
+				fseek(fw->file, 0, SEEK_END);
+				long size = ftell(fw->file);
+				fseek(fw->file, pos, SEEK_SET);
+				ltobi(num, size);
+			}else{
+				ltobi(num, 0);
+			}
+			ret = new_bignum(num, big_integer);
+			break;
+		}
 		default:{
 			quit_for_error(3, "Error: Invalid type for absolute value!\n");
 		}
@@ -683,7 +893,47 @@ int32_t comp_top2(){
 
 void popped_bit_and(uservar *left, uservar *right){
 	var_type com = common_math_type(left->type, right->type);
-	switch(com){
+	if(left->type == wstring){
+		datam_darr *wstr = left->values.list_val;
+		uservar *var = new_filevar(wstr);
+		file_setmode(var->values.file_val, right);
+		push_sym(pushable_var(var));
+	}
+	else if(left->type == open_file){
+		file_wrapper *fw = left->values.file_val;
+		uint32_t flag = file_flagval(right);
+		if((flag & (flag - 1)) == 0){
+			flag &= fw->status;
+			uservar *var = new_cp((int32_t)flag);
+			push_sym(pushable_var(var));
+		}else{
+			if(flag == 'd'){
+				datam_darr *wstr = datam_darr_new(4);
+				int32_t chr;
+				for(char *ptr = fw->path; *ptr; ptr++){
+					chr = *ptr;
+					datam_darr_push(wstr, &chr);
+				}
+				chr = 0;
+				datam_darr_push(wstr, &chr);
+				uservar *var = new_seq(wstr, wstring);
+				push_sym(pushable_var(var));
+			}
+			else if(flag == 'p'){
+				if(!(fw->status & STATUS_OPEN))
+					quit_for_error(8, "Error: Reading position of unopened file\n");
+				long pos = ftell(fw->file);
+				binode_t *num = bigint_link();
+				ltobi(num, pos);
+				uservar *var = new_bignum(num, big_integer);
+				push_sym(pushable_var(var));
+			}
+			else{
+				quit_for_error(10, "Error: Nonsense flag %c\n", (char)flag);
+			}
+		}
+	}
+	else switch(com){
 		case big_fixed:
 		case big_integer:{
 			binode_t *lnum = left->values.big_val, *rnum = right->values.big_val;
@@ -731,6 +981,19 @@ void popped_bit_and(uservar *left, uservar *right){
 			push_sym(pushable_var(var));
 			break;
 		}
+		case hash_table:{
+			datam_hashtable *lmap = put_tomap(left), *rmap = put_tomap(right);
+			for(datam_hashbucket *buck = datam_hashtable_next(lmap, NULL); buck != NULL; buck = datam_hashtable_next(lmap, buck)){
+				uservar *key = (uservar*)(buck->key);
+				uservar *match = datam_hashtable_get(rmap, key);
+				if(match == NULL)
+					datam_hashtable_remove(lmap, key);
+			}
+			datam_hashtable_delete(rmap);
+			uservar *var = new_map(lmap);
+			push_sym(pushable_var(var));
+			break;
+		}
 		default:{
 			quit_for_error(5, "Error: Invalid AND operands\n");
 		}
@@ -745,7 +1008,18 @@ void bit_and(){
 
 void popped_bit_or(uservar *left, uservar *right){
 	var_type com = common_math_type(left->type, right->type);
-	switch(com){
+	if(left->type == open_file){
+			file_wrapper *fw = left->values.file_val;
+			if(fw->status & STATUS_OPEN){
+				quit_for_error(8, "Error: Modifying status of open file\n");
+			}
+			uint32_t flag = file_flagval(right);
+			if(flag == STATUS_OPEN || flag == STATUS_EXISTS || flag == STATUS_DIR || flag == STATUS_EOF || (flag & (flag - 1) != 0)){
+				quit_for_error(8, "Error: Cannot modify open, exists, or dir flags\n");
+			}
+			fw->status |= flag;
+	}
+	else switch(com){
 		case big_fixed:
 		case big_integer:{
 			binode_t *lnum = left->values.big_val, *rnum = right->values.big_val;
@@ -783,6 +1057,14 @@ void popped_bit_or(uservar *left, uservar *right){
 			push_sym(pushable_var(var));
 			break;
 		}
+		case hash_table:{
+			datam_hashtable *lmap = put_tomap(left), *rmap = put_tomap(right);
+			datam_hashtable_addall(lmap, rmap);
+			datam_hashtable_delete(rmap);
+			uservar *var = new_map(lmap);
+			push_sym(pushable_var(var));
+			break;
+		}
 		default:{
 			quit_for_error(5, "Error: Invalid OR operands\n");
 		}
@@ -797,7 +1079,43 @@ void bit_or(){
 
 void popped_bit_xor(uservar *left, uservar *right){
 	var_type com = common_math_type(left->type, right->type);
-	switch(com){
+	if(left->type == list){
+			datam_darr *src = left->values.list_val;
+			datam_darr *ret = datam_darr_new(sizeof(uservar*));
+			size_t n = src->n;
+			size_t lpos = 0;
+			uservar *single;
+			for(size_t i = 0; i <= n; i++){
+				datam_darr_get(src, &single, i);
+				if(uservar_cmp(single, right) == 0 || i == n){
+					size_t rpos = i;
+					if(rpos > lpos){
+						datam_darr *lst = datam_darr_new(sizeof(uservar*));
+						for(size_t j = lpos; j < rpos; j++){
+							datam_darr_get(src, &single, j);
+							datam_darr_push(lst, &single);
+						}
+						uservar *sub = new_seq(lst, list);
+						datam_darr_push(ret, &sub);
+					}
+					lpos = rpos + 1;
+				}
+			}
+			uservar *var = new_seq(ret, list);
+			push_sym(pushable_var(var));
+	}
+	else if(left->type == open_file){
+			file_wrapper *fw = left->values.file_val;
+			if(fw->status & STATUS_OPEN){
+				quit_for_error(8, "Error: Modifying status of open file\n");
+			}
+			uint32_t flag = file_flagval(right);
+			if(flag == STATUS_OPEN || flag == STATUS_EXISTS || flag == STATUS_DIR || flag == STATUS_EOF || (flag & (flag - 1) != 0)){
+				quit_for_error(8, "Error: Cannot modify open, exists, or dir flags\n");
+			}
+			fw->status &= ~flag;
+	}
+	else switch(com){
 		case big_fixed:
 		case big_integer:{
 			binode_t *lnum = left->values.big_val, *rnum = right->values.big_val;
@@ -813,6 +1131,59 @@ void popped_bit_xor(uservar *left, uservar *right){
 		case code_point:{
 			int32_t l = left->values.uni_val, r = right->values.uni_val;
 			uservar *var = new_cp(l ^ r);
+			push_sym(pushable_var(var));
+			break;
+		}
+		case hash_table:{
+			datam_hashtable *lmap = put_tomap(left), *rmap = put_tomap(right);
+			for(datam_hashbucket *buck = datam_hashtable_next(lmap, NULL); buck != NULL; buck = datam_hashtable_next(lmap, buck)){
+				uservar *key = (uservar*)(buck->key);
+				uservar *match = datam_hashtable_get(rmap, key);
+				if(match != NULL){
+					datam_hashtable_remove(lmap, key);
+					datam_hashtable_remove(rmap, key);
+				}
+			}
+			for(datam_hashbucket *buck = datam_hashtable_next(rmap, NULL); buck != NULL; buck = datam_hashtable_next(rmap, buck)){
+				uservar *key = (uservar*)(buck->key);
+				datam_hashtable_put(lmap, key, new_variable());
+			}
+			datam_hashtable_delete(rmap);
+			uservar *var = new_map(lmap);
+			push_sym(pushable_var(var));
+			break;
+		}
+		case wstring:{
+			datam_darr *haystack_var = left->values.list_val;
+			datam_darr *needle_var = put_tostring(right);
+			datam_darr *spls = datam_darr_new(sizeof(uservar*));
+			uint32_t *haystack = haystack_var->data;
+			uint32_t *needle = needle_var->data;
+			uint32_t *upto = haystack;
+			uint32_t chr;
+			size_t lpos = 0;
+			while(lpos < haystack_var->n - 1){
+				upto = wstrpos(haystack + lpos, needle);
+				if(upto == NULL)
+					upto = haystack + haystack_var->n - 1;
+				size_t rpos = upto - haystack;
+				if(rpos <= lpos){
+					lpos = rpos + needle_var->n - 1;
+					continue;
+				}
+				datam_darr *sub = datam_darr_new(4);
+				for(size_t i = lpos; i < rpos; i++){
+					chr = haystack[i];
+					datam_darr_push(sub, &chr);
+				}
+				lpos = rpos + needle_var->n - 1;
+				chr = 0;
+				datam_darr_push(sub, &chr);
+				uservar *child = new_seq(sub, wstring);
+				datam_darr_push(spls, &child);
+			}
+			uservar *var = new_seq(spls, list);
+			datam_darr_delete(needle_var);
 			push_sym(pushable_var(var));
 			break;
 		}

@@ -72,6 +72,9 @@ void write_bom(FILE *dst, int type){
 uint32_t sget_unicode(char *src, char **eptr, int type){
 	uint32_t uni = 0;
 	switch(type){
+		case TYPE_BINARY:
+			uni = *(src++);
+			break;
 		case TYPE_UTF8:
 		case TYPE_UNKNOWN:{
 			int first = *src;
@@ -163,6 +166,9 @@ uint32_t fget_unicode(FILE *src, int type){
 	static unsigned char uni_buf[4];
 	memset(uni_buf, 0, 4);
 	switch(type){
+		case TYPE_BINARY:
+			unicode = fgetc(src);
+			break;
 		case TYPE_UNKNOWN:
 		case TYPE_UTF8:{
 			int first = fgetc(src);
@@ -227,6 +233,9 @@ uint32_t fget_unicode(FILE *src, int type){
 
 void fput_unicode(FILE *dst, int type, uint32_t pt){
 	switch(type){
+		case TYPE_BINARY:
+			fputc(pt, dst);
+			break;
 		case TYPE_UTF32LE:
 			safe_write(pt, 4, SAFE_LITTLE_ENDIAN, dst);
 			break;
@@ -275,6 +284,78 @@ void fput_unicode(FILE *dst, int type, uint32_t pt){
 		}
 	}
 }
+
+char* sput_unicode(char *dst, int type, uint32_t pt){
+	switch(type){
+		case TYPE_BINARY:
+			*(dst++) = pt;
+			break;
+		case TYPE_UTF32LE:
+			*(dst++) = pt & 0xff;
+			*(dst++) = (pt >> 8) & 0xff;
+			*(dst++) = (pt >> 16) & 0xff;
+			*(dst++) = (pt >> 24) & 0xff;
+			break;
+		case TYPE_UTF32BE:
+			*(dst++) = (pt >> 24) & 0xff;
+			*(dst++) = (pt >> 16) & 0xff;
+			*(dst++) = (pt >> 8) & 0xff;
+			*(dst++) = pt & 0xff;
+			break;
+		case TYPE_UTF16LE:
+			if(pt >= 0x10000){
+				int hi = (pt >> 10);
+				int lo = pt & 0x1ff;
+				hi += 0xd800;
+				lo += 0xdc00;
+				*(dst++) = hi & 0xff;
+				*(dst++) = (hi >> 8) & 0xff;
+				*(dst++) = lo & 0xff;
+				*(dst++) = (lo >> 8) & 0xff;
+			}else{
+				*(dst++) = pt & 0xff;
+				*(dst++) = (pt >> 8) & 0xff;
+			}
+			break;
+		case TYPE_UTF16BE:
+			if(pt >= 0x10000){
+				int hi = (pt >> 10);
+				int lo = pt & 0x1ff;
+				hi += 0xd800;
+				lo += 0xdc00;
+				*(dst++) = (hi >> 8) & 0xff;
+				*(dst++) = hi & 0xff;
+				*(dst++) = (lo >> 8) & 0xff;
+				*(dst++) = lo & 0xff;
+			}else{
+				*(dst++) = (pt >> 8) & 0xff;
+				*(dst++) = pt & 0xff;
+			}
+			break;
+		case TYPE_UTF8:{
+			if(pt < 0x80){
+				*(dst++) = pt;
+			}
+			else if(pt < 0x7ff){
+				*(dst++) = 0xc0 | (pt >> 6);
+				*(dst++) = 0x80 | (pt & 0x3f);
+			}
+			else if(pt < 0xffff){
+				*(dst++) = 0xe0 | (pt >> 12);
+				*(dst++) = 0x80 | ((pt >> 6) & 0x3f);
+				*(dst++) = 0x80 | (pt & 0x3f);
+			}else{
+				*(dst++) = 0xf0 | (pt >> 18);
+				*(dst++) = 0x80 | ((pt >> 12) & 0x3f);
+				*(dst++) = 0x80 | ((pt >> 6) & 0x3f);
+				*(dst++) = 0x80 | (pt & 0x3f);
+			}
+			break;
+		}
+	}
+	return dst;
+}
+
 void wstrstr(char *str, uint32_t *wstr){
 	int i = 0;
 	while(wstr[i]){
@@ -493,4 +574,68 @@ size_t bin_fgets(char *buffer, size_t len, FILE *src){
 	}
 	buffer[read] = 0;
 	return read;
+}
+
+size_t wcommon_len(uint32_t *a, uint32_t *b){
+	size_t i;
+	for(i = 0; a[i] != 0 && b[i] != 0; i++){
+		if(a[i] != b[i])
+			break;
+	}
+	return i;
+}
+
+size_t* wstrpos_table(uint32_t *needle){
+	size_t len = wstrlen(needle);
+	size_t *jumps = malloc(sizeof(size_t) * len);
+	jumps[0] = 0;
+	for(size_t i = 1; i < len; i++){
+		size_t c = i;
+		while(c){
+			if(needle[i] == needle[jumps[c - 1]]){
+				jumps[i] = jumps[c - 1] + 1;
+				break;
+			}
+			else{
+				c = jumps[c - 1];
+			}
+		}
+		if(c == 0){
+			if(needle[i] == needle[0])
+				jumps[i] == 1;
+			else
+				jumps[i] == 0;
+		}
+	}
+	return jumps;
+}
+
+uint32_t *wstrpos(uint32_t *haystack, uint32_t *needle){
+	if(haystack == NULL || needle == NULL)
+		return NULL;
+	size_t hlen = wstrlen(haystack);
+	size_t nlen = wstrlen(needle);
+	if(hlen == 0 || nlen == 0)
+		return NULL;
+	size_t *jumps = wstrpos_table(needle);
+	size_t n_i = 0;
+	size_t h_i = 0;
+	uint32_t *match = NULL;
+	while(n_i + nlen <= hlen){
+		size_t common = h_i + wcommon_len(haystack + n_i + h_i, needle + h_i);
+		if(common == nlen){
+			match = haystack + n_i;
+			break;
+		}
+		else if(common == 0){
+			n_i += 1;
+			h_i = 0;
+		}
+		else{
+			n_i += common - jumps[common - 1];
+			h_i = jumps[common - 1];
+		}
+	}
+	free(jumps);
+	return match;
 }

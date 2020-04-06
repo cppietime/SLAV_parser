@@ -43,4 +43,20 @@ void bit_and();
 void bit_or();
 void bit_xor();
 
+file_wrapper* new_file(char *path);
+uservar* new_filevar(datam_darr *name);
+void file_setmode(file_wrapper *fw, uservar *mvar);
+void open_filevar(file_wrapper *fw);
+void close_filevar(file_wrapper *fw);
+file_wrapper* file_appended(file_wrapper *base, char *path);
+void write_to_file(file_wrapper *fw, uservar *val);
+uint32_t file_next(file_wrapper *fw);
+datam_darr* read_from_file(file_wrapper *fw, size_t n);
+datam_darr* read_until(file_wrapper *fw, uint32_t delim);
+void fw_seek(file_wrapper *fw, long skip, int mode);
+uint32_t file_flagval(uservar *var);
+void read_big(binode_t *dst, file_wrapper *fw);
+datam_darr* read_string(file_wrapper *fw);
+double read_float(file_wrapper *fw);
+
 #endif

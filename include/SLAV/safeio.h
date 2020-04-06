@@ -17,11 +17,13 @@ Endian-agnostic I/O functions
 #define TYPE_UTF16BE 3
 #define TYPE_UTF32LE 4
 #define TYPE_UTF32BE 5
+#define TYPE_BINARY 6
 
 int fget_utf_type(FILE *file);
 uint32_t sget_unicode(char *src, char **eptr, int type);
 uint32_t fget_unicode(FILE *src, int type);
-void fput_unicode(FILE *src, int type, uint32_t val);
+void fput_unicode(FILE *dst, int type, uint32_t val);
+char *sput_unicode(char *dst, int type, uint32_t val);
 void convert_utf(FILE *dst, int dtyp, FILE *src, int styp);
 void wstrstr(char *str, uint32_t *wstr); /* Copy wide to normal */
 void wstrcpy(uint32_t *dst, uint32_t *src); /* Copy unicode string */
@@ -38,5 +40,6 @@ uint64_t safe_read(int, int, FILE*);
 void double_write(double, int, FILE*);
 double double_read(int, FILE*);
 size_t bin_fgets(char *buffer, size_t len, FILE *src);
+uint32_t* wstrpos(uint32_t *h, uint32_t *n);
 
 #endif

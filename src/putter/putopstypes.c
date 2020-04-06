@@ -22,6 +22,13 @@ datam_darr* put_tostring(uservar *var){
 	else{
 		var->flags |= FLAG_RECUR;
 		switch(var->type){
+			case open_file:{
+				datam_darr *line = read_string(var->values.file_val);
+				datam_darr_pushall(ret, line);
+				datam_darr_delete(line);
+				ret->n--;
+				break;
+			}
 			case big_integer:
 			case big_fixed:{
 				binode_t *big = var->values.big_val;
@@ -49,14 +56,6 @@ datam_darr* put_tostring(uservar *var){
 				datam_darr *oldstr = var->values.list_val;
 				datam_darr_pushall(ret, oldstr);
 				ret->n--;
-				break;
-			}
-			case open_file:{
-				strcpy(strbuf, "<File object>");
-				for(char *ptr = strbuf; *ptr; ptr++){
-					chr = *ptr;
-					datam_darr_push(ret, &chr);
-				}
 				break;
 			}
 			case block_code:{
@@ -105,6 +104,8 @@ datam_darr* put_tostring(uservar *var){
 					sub->n--;
 					datam_darr_pushall(ret, sub);
 					datam_darr_delete(sub);
+					chr = ':';
+					datam_darr_push(ret, &chr);
 					key = (uservar*)(buck->value);
 					sub = put_tostring(key);
 					sub->n--;
@@ -135,6 +136,9 @@ datam_darr* put_tostring(uservar *var){
 void put_tobigint(binode_t *dst, uservar *src){
 	dst->type = TYPE_BIGINT;
 	switch(src->type){
+		case open_file:
+			read_big(dst, src->values.file_val);
+			break;
 		case big_integer:
 			bicpy(dst, src->values.big_val);
 			break;
@@ -169,6 +173,9 @@ void put_tobigint(binode_t *dst, uservar *src){
 void put_tobigfix(binode_t *dst, uservar *src){
 	dst->type = TYPE_BIGFIX;
 	switch(src->type){
+		case open_file:
+			read_big(dst, src->values.file_val);
+			break;
 		case big_integer:
 			bicpy(dst, src->values.big_val);
 			biconv(dst, TYPE_BIGFIX);
@@ -201,6 +208,8 @@ void put_tobigfix(binode_t *dst, uservar *src){
 
 double put_tofloat(uservar *src){
 	switch(src->type){
+		case open_file:
+			return read_float(src->values.file_val);
 		case big_fixed:
 		case big_integer:{
 			binode_t *num = src->values.big_val;
@@ -358,8 +367,13 @@ uservar* match_type(uservar *val, uservar *templ){
 			break;
 		}
 		case code_point:{
-			float f = put_tofloat(val);
-			ret = new_cp((int32_t)f);
+			if(val->type == open_file){
+				ret = new_cp(file_next(val->values.file_val));
+			}
+			else{
+				float f = put_tofloat(val);
+				ret = new_cp((int32_t)f);
+			}
 			break;
 		}
 		default:{

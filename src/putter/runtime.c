@@ -173,8 +173,9 @@ pushable pop_pushable(){
 	datam_darr_get(stack, &popped, i);
 	if(!(mode_flags & CLONE_MODE))
 		stack->n--;
-	if(mode_flags & VOLATILE_MODE)
-		mode_flags ^= CLONE_MODE;
+	if(mode_flags & VOLATILE_MODE){
+		mode_flags ^= CLONE_MODE | VOLATILE_MODE;
+	}
 	return popped;
 }
 
@@ -189,6 +190,13 @@ uservar* resolve_var(pushable tok){
 		if(var != NULL){
 			return var;
 		}
+	}
+	for(size_t i = 0; i < var_frames->length; i++){
+		datam_duonode *node = datam_deque_get(var_frames, i);
+		datam_hashtable *frame = node->data;
+		var = (uservar*)(datam_hashtable_get(frame, name));
+		if(var != NULL)
+			return var;
 	}
 	var = (uservar*)(datam_hashtable_get(global_vars, name));
 	if(var != NULL){
@@ -207,9 +215,15 @@ void discard_popped(pushable pop){
 }
 
 uservar* pop_var(){
-	pushable pop = pop_pushable();
+	pushable pop;
+	datam_darr_get(stack, &pop, stack->n - 1);
 	uservar *var = resolve_var(pop);
-	discard_popped(pop);
+	if(!(mode_flags & CLONE_MODE)){
+		stack->n --;
+		discard_popped(pop);
+	}
+	if(mode_flags & VOLATILE_MODE)
+		mode_flags ^= CLONE_MODE | VOLATILE_MODE;
 	return var;
 }
 
@@ -217,12 +231,21 @@ void pop_n_vars(int allow_empty, size_t n, ...){
 	va_list args;
 	va_start(args, n);
 	for(size_t i = 0; i < n; i++){
-		uservar *var = pop_var();
+		uservar *var;
+		pushable p;
+		datam_darr_get(stack, &p, stack->n - 1 - i);
+		var = resolve_var(p);
+		if(!(mode_flags & CLONE_MODE))
+			discard_popped(p);
 		if(var->type == empty && !allow_empty)
 			quit_for_error(6, "Popped empty variable\n");
 		uservar **target = va_arg(args, uservar**);
 		*target = var;
 	}
+	if(!(mode_flags & CLONE_MODE))
+		stack->n -= n;
+	if(mode_flags & VOLATILE_MODE)
+		mode_flags ^= CLONE_MODE | VOLATILE_MODE;
 }
 
 static FILE *open_src = NULL;

@@ -51,7 +51,7 @@ static uint32_t ops_list[] = {
 	':', /* Assign */
 	'$', /* Duplicate reference */
 	'@', /* Index */
-	'(', /* Resolve */
+	';', /* Resolve */
 	',', /* Swap top with n-th */
 	'\\', /* Match type */
 	'`', /* Pop and discard */
@@ -64,7 +64,7 @@ static uint32_t ops_list[] = {
 	/* Control */
 	')', /* Execute */
 	'?', /* Conditional execute */
-	';', /* While loop */
+	'(', /* While loop */
 	0
 };
 
@@ -75,6 +75,7 @@ static uint32_t break_list[] = {
 	'\n',
 	'\t',
 	'\r',
+	'[',
 	comment_delim,
 	'"',
 	0
@@ -84,8 +85,8 @@ pushable parse_sym(FILE *src){
 	static uint32_t tokbuffer[1024];
 	static char numbuffer[1024];
 	uint32_t cp = next_char(src);
-	while(cp == ' ' || cp == '\n' || cp == '\r' || cp == comment_delim){ /* Skip whitespace and comments */
-		while(cp == ' ' || cp == '\n' || cp == '\r') /* Skip whitespace */
+	while(cp == ' ' || cp == '\t' || cp == '\n' || cp == '\r' || cp == comment_delim){ /* Skip whitespace and comments */
+		while(cp == ' ' || cp == '\t' || cp == '\n' || cp == '\r') /* Skip whitespace */
 			cp = next_char(src);
 		while(cp == comment_delim){ /* Skip comments */
 			cp = next_char(src);
@@ -102,6 +103,10 @@ pushable parse_sym(FILE *src){
 		}
 	}
 	if(cp == EOF){
+		return (pushable){.type = nothing};
+	}
+	else if(cp == '}'){
+		putback_char(cp);
 		return (pushable){.type = nothing};
 	}
 	else if(cp == '{'){ /* Get a code block */
