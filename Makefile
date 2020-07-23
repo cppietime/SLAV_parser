@@ -72,10 +72,8 @@ langbuilder_shared:shared_slav
 	$(CC) $(FLAGS) -o test/langbuilder_shared src/langbuilder.c -Llibs -lslav
 
 install:
-	mkdir -p $(DESTDIR)$(PREFIX)/lib
-	mkdir -p $(DESTDIR)$(PREFIX)/include/SLAV
-	cp libs/*$(SHARED)* $(DESTDIR)$(PREFIX)/lib
-	cp include/SLAV/*.h $(DESTDIR)$(PREFIX)/include/SLAV
+	install -D libs/*$(SHARED)* $(DESTDIR)$(PREFIX)/lib
+	install -D include/SLAV/*.h $(DESTDIR)$(PREFIX)/include/SLAV
 
 %.o:%.c
 	$(CC) $(FLAGS) -c -o $@ $<

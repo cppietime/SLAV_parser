@@ -1,0 +1,5 @@
+sqr{$*}:
+"Enter a number:!"'
+n_0.\:
+"N = "n sqr)+'
+_
