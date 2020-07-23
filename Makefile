@@ -86,4 +86,6 @@ clean:
 
 .PHONY:destroy
 destroy:clean
-	rm -f libs/*
+	rm -f ./libs/*$(SHARED)
+	rm -f ./libs/*$(SHARE_INC)
+	rm -f ./libs/*.a
