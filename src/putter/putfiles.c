@@ -14,6 +14,10 @@ File IO functions for Putter
 #include "slavio.h"
 #include "bigint.h"
 
+#if (defined(_WIN32) || defined(__WIN32__))
+#define mkdir(A, B) mkdir(A)
+#endif
+
 file_wrapper* new_file(char* path){
 	file_wrapper *ret = malloc(sizeof(file_wrapper));
 	ret->path = path;

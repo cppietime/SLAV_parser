@@ -6,7 +6,6 @@ Code to produce the c- and h- files for a language.
 #include <string.h>
 #include <getopt.h>
 #include "slav.h"
-#include "../../slavlang.h"
 
 int main(int argc, char **argv){
 	static char path[1024] = ".";
