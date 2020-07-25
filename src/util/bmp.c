@@ -208,6 +208,7 @@ Bitmap* Bmp_empty(int width, int height, int bps, int colors){
     row_bytes = (row_bytes+3)&~3;
     ret->row_bytes = row_bytes;
     ret->bitmap = malloc(row_bytes*height);
+	ret->R = ret->G = ret->B = 0;
     return ret;
 }
 
@@ -436,7 +437,6 @@ Bitmap* Bmp_resize(Bitmap* bitmap, int width, int height){
     ret->G=bitmap->G;
     ret->B=bitmap->B;
     float xrat = (float)bitmap->width/(float)width, yrat = (float)bitmap->height/(float)height;
-    printf("Ratios=%f,%f\n",xrat,yrat);
     for(int x=0; x<width; x++){
         for(int y=0; y<height; y++){
             uint32_t col = get_pixel(bitmap, (int)(x*xrat), (int)(y*yrat));

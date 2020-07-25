@@ -1,0 +1,9 @@
+libs
+*.exe
+Dr.*
+src/parser/*.o
+src/datatypes/*.o
+src/putter/*.o
+src/util/*.o
+src/regex/*.o
+src/*.o

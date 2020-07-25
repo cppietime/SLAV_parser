@@ -29,7 +29,7 @@ both_%:shared_% static_%
 libs/libslavint.a:$(OBJ_BIGI)
 libs/libslavint$(SHARED):$(OBJ_BIGI)
 
-libs/libslav.a:$(OBJ_SLAV)
+libs/libslav.a:$(OBJ_SLAV) libs/libdatam.a libs/libslavio.a
 libs/libslav$(SHARED):$(OBJ_SLAV) libs/libdatam$(SHARED) libs/libslavio$(SHARED)
 
 libs/libdatam.a:$(OBJ_DAT)
@@ -72,7 +72,7 @@ langbuilder_shared:shared_slav
 	$(CC) $(FLAGS) -o test/langbuilder_shared src/langbuilder.c -Llibs -lslav
 
 install:
-	install -D libs/*$(SHARED)* $(DESTDIR)$(PREFIX)/lib
+	install -D libs/*$(SHARED)* libs/*.a $(DESTDIR)$(PREFIX)/lib || :
 	install -D include/SLAV/*.h $(DESTDIR)$(PREFIX)/include/SLAV
 
 %.o:%.c
