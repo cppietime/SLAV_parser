@@ -60,6 +60,7 @@ void set_pixel(Bitmap*, int, int, uint32_t); //Set the pixel at a coordinate in 
 void Bmp_dump(FILE*, Bitmap*); //Print some data of a Bitmap
 
 uint32_t HSV2RGB(float, float, float); //HSV 2 RGB in X8R8G8B8 big-endian
+void RGB2HSV(uint32_t rgb, float *H, float *S, float *V); //Reverse of above
 
 void Bmp_flipH(Bitmap*); //Flips horizontal, in-place
 void Bmp_flipV(Bitmap*); //Flips vertical, in-place

@@ -142,6 +142,8 @@ Bitmap* Bmp_load(FILE* src){
     }else{
         ret->width = read_value(src, 4, 0);
         ret->height = read_value(src, 4, 0);
+        ret->row_bytes = (ret->width*ret->bps+7)>>3;
+        ret->row_bytes = (ret->row_bytes+3)&~3;
         fseek(src, 2, SEEK_CUR);
         ret->bps = read_value(src, 2, 0);
         ret->dib->compression = read_value(src, 4, 0);
@@ -172,6 +174,8 @@ Bitmap* Bmp_load(FILE* src){
             ret->palette[i] = read_value(src, 4, 0);
         }
     }
+	else
+		ret->palette = NULL;
     ret->bitmap = malloc(ret->dib->bitmap_size);
     for(int y=0; y<ret->height; y++){
         if(ret->bps<=8){
@@ -329,7 +333,46 @@ uint32_t HSV2RGB(float H, float S, float V){
     r &= 0xff;
     g &= 0xff;
     b &= 0xff;
-    return (b<<16)|(g<<8)|r;
+    return (r<<16)|(g<<8)|b;
+}
+
+void RGB2HSV(uint32_t rgb, float *H, float *S, float *V){
+	int r = rgb >> 16, g = (rgb >> 8) & 0xff, b = rgb & 0xff;
+	int hi = r, med = g, lo = b, sextant = 0;
+	if(g > r){
+		if(r > b){
+			hi = g;
+			med = r;
+			sextant = 1;
+		}else if(b > g){
+			hi = b;
+			med = g;
+			lo = r;
+			sextant = 3;
+		}else{
+			hi = g;
+			med = b;
+			lo = r;
+			sextant = 2;
+		}
+	}else if(g < b){
+		if(r > b){
+			med = b;
+			lo = g;
+			sextant = 5;
+		}else{
+			hi = b;
+			lo = g;
+			med = r;
+			sextant = 4;
+		}
+	}
+	*V = hi / 255.0;
+	*S = (hi - lo) / (float)hi;
+	float hue = (med - lo) / (float)(hi - lo);
+	if(sextant & 1)
+		hue = 1 - hue;
+	*H = (hue + sextant) * M_PI / 3.0;
 }
 
 void Bmp_flipH(Bitmap* bitmap){
