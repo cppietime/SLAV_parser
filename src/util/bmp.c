@@ -142,10 +142,10 @@ Bitmap* Bmp_load(FILE* src){
     }else{
         ret->width = read_value(src, 4, 0);
         ret->height = read_value(src, 4, 0);
-        ret->row_bytes = (ret->width*ret->bps+7)>>3;
-        ret->row_bytes = (ret->row_bytes+3)&~3;
         fseek(src, 2, SEEK_CUR);
         ret->bps = read_value(src, 2, 0);
+        ret->row_bytes = (ret->width*ret->bps+7)>>3;
+        ret->row_bytes = (ret->row_bytes+3)&~3;
         ret->dib->compression = read_value(src, 4, 0);
         ret->dib->bitmap_size = read_value(src, 4, 0);
         ret->dib->xres = read_value(src, 4, 0);
@@ -369,7 +369,7 @@ void RGB2HSV(uint32_t rgb, float *H, float *S, float *V){
 	}
 	*V = hi / 255.0;
 	*S = (hi - lo) / (float)hi;
-	float hue = (med - lo) / (float)(hi - lo);
+	float hue = (hi == lo) ? 0 : (med - lo) / (float)(hi - lo);
 	if(sextant & 1)
 		hue = 1 - hue;
 	*H = (hue + sextant) * M_PI / 3.0;
