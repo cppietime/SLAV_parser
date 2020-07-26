@@ -29,6 +29,9 @@ void datam_darr_delete(datam_darr *list);
 /* Pushes an element to the tail of the list */
 void datam_darr_push(datam_darr *list, void *src);
 
+/* Push literal integer value */
+void datam_darr_pushlit(datam_darr *list, long val);
+
 /* Push all of src onto dst */
 void datam_darr_pushall(datam_darr *dst, datam_darr *src);
 

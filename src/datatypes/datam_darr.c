@@ -4,6 +4,7 @@ Written by Yaakov Schectman 2019.
 */
 
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 #include "datam.h"
 
@@ -30,6 +31,31 @@ void datam_darr_push(datam_darr *list, void *src){
     }
     memcpy(list->data + list->n * list->size, src, list->size);
     list->n ++;
+}
+
+void datam_darr_pushlit(datam_darr *list, long val){
+	if(list->n == list->c){
+		list->c <<= 1;
+		list->data = realloc(list->data, list->size * list->c);
+	}
+	switch(list->size){
+		case 1:{
+			uint8_t *data = list->data;
+			data[list->n] = val;
+			break;
+		}
+		case 2:{
+			uint16_t *data = list->data;
+			data[list->n] = val;
+			break;
+		}
+		case 4:{
+			uint32_t *data = list->data;
+			data[list->n] = val;
+			break;
+		}
+	}
+	list->n++;
 }
 
 void datam_darr_pushall(datam_darr *dst, datam_darr *src){
