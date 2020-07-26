@@ -368,7 +368,7 @@ void RGB2HSV(uint32_t rgb, float *H, float *S, float *V){
 		}
 	}
 	*V = hi / 255.0;
-	*S = (hi - lo) / (float)hi;
+	*S = (hi == 0) ? 0 : (hi - lo) / (float)hi;
 	float hue = (hi == lo) ? 0 : (med - lo) / (float)(hi - lo);
 	if(sextant & 1)
 		hue = 1 - hue;
