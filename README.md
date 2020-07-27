@@ -73,3 +73,7 @@ The slavio.h include file adds a handful of useful utility and I/O functions, su
 ## Big integers
 
 The bigint.h header includes functions and datatypes for arbitrary-precision big integers and fixed-point numbers, as well as some rudimentary encryption (not practical). Run `make slavint_shared` or `slavint_static` to compile the libraries.
+
+## Installation
+
+To compile the libraries for slavio, datam, and slav, run `make static_slav` or `make shared_slav`. `make static/shared_slavint` compiles the arbitrary precision integer types library. Then, run `make install`. This will install header files to `/usr/local/include` and libraries to `/usr/local/lib` by default. Set the `DESTDIR` and/or `PREFIX` variables for `make` in order to change this to `DESTDIR/PREFIX/include` and `DESTDIR/PREFIX/lib`. By default, `DESTDIR` is empty, and `PREFIX is `/usr/local`.
