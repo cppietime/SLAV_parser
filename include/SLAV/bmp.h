@@ -71,7 +71,7 @@ void Bmp_count(Bitmap*, int*); //Get the occurrance of colors in indexed bitmaps
 void Bmp_try_palette(Bitmap*, int, int);
 void Bmp_base_palette(Bitmap*, int, int, float, float, float);
 
-Bitmap* Bmp_resize(Bitmap*, int, int);
+Bitmap* Bmp_resize(Bitmap*, int, int); //Nearest-neighbor
 
 void Bmp_COM(Bitmap*, uint32_t, float*, float*); //Center of mass of non-BG bixels
 float Bmp_STD(Bitmap*, uint32_t, float, float); //Deviation of non-BG pixels

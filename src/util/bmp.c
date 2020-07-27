@@ -481,8 +481,16 @@ Bitmap* Bmp_resize(Bitmap* bitmap, int width, int height){
     ret->B=bitmap->B;
     float xrat = (float)bitmap->width/(float)width, yrat = (float)bitmap->height/(float)height;
     for(int x=0; x<width; x++){
+		float fx = x * xrat;
+		int nx = (int)fx;
+		nx = (fx - nx >= 0.5) ? nx + 1 : nx;
+		nx = (nx < 0) ? 0 : (nx >= bitmap->width) ? bitmap->width - 1 : nx;
         for(int y=0; y<height; y++){
-            uint32_t col = get_pixel(bitmap, (int)(x*xrat), (int)(y*yrat));
+			float fy = y * yrat;
+			int ny = (int)fy;
+			ny = (fy - ny >= 0.5) ? ny + 1 : ny;
+			ny = (ny < 0) ? 0 : (ny >= bitmap->height) ? bitmap->height - 1 : ny;
+            uint32_t col = get_pixel(bitmap, nx, ny);
             set_pixel(ret,x,y,col);
         }
     }
